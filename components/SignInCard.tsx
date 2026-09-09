@@ -1,12 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, signIn } from "@/lib/puter";
 
 export default function SignInCard() {
   const router = useRouter();
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const handleSignIn = async () => {
+    if (isSigningIn) return;
+
+    setIsSigningIn(true);
+
     try {
       await signIn();
 
@@ -15,15 +21,14 @@ export default function SignInCard() {
       if (user) {
         router.push("/dashboard");
       }
-    } catch (error) {
+    } catch {
       const user = await getCurrentUser();
 
       if (user) {
         router.push("/dashboard");
-        return;
       }
-
-      console.error("Sign in failed:", error);
+    } finally {
+      setIsSigningIn(false);
     }
   };
 
@@ -44,9 +49,10 @@ export default function SignInCard() {
 
       <button
         onClick={handleSignIn}
-        className="w-full rounded-xl bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800"
+        disabled={isSigningIn}
+        className="w-full rounded-xl bg-gray-900 px-4 py-3 font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Sign in with Puter
+        {isSigningIn ? "Signing in..." : "Sign in with Puter"}
       </button>
 
       <p className="mt-4 text-center text-xs text-gray-500">
