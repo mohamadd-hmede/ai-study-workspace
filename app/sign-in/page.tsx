@@ -1,4 +1,5 @@
 import SignInCard from "@/components/SignInCard";
+import { Suspense } from "react";
 
 export default function SignInPage() {
   return (
@@ -31,7 +32,9 @@ export default function SignInPage() {
         </section>
 
         <section className="flex items-center justify-center px-6 py-12">
-          <SignInCard />
+          <Suspense fallback={null}>
+            <SignInCard />
+          </Suspense>
         </section>
       </div>
     </main>
