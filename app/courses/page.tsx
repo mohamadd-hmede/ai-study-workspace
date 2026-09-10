@@ -14,6 +14,7 @@ export default function CoursesPage() {
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) {
@@ -26,20 +27,38 @@ export default function CoursesPage() {
     }
 
     const loadCourses = async () => {
-      const userCourses = await getCourses();
-
-      setCourses(userCourses);
-      setCoursesLoading(false);
+      try {
+        const currentCourses = await getCourses();
+        setCourses(currentCourses);
+      } catch {
+        setCoursesError("Failed to load courses. Please try again.");
+      } finally {
+        setCoursesLoading(false);
+      }
     };
 
     loadCourses();
   }, [user, authLoading, router]);
 
+  const retryLoadCourses = async () => {
+    setCoursesLoading(true);
+    setCoursesError(null);
+
+    try {
+      const currentCourses = await getCourses();
+      setCourses(currentCourses);
+    } catch {
+      setCoursesError("Failed to load courses. Please try again.");
+    } finally {
+      setCoursesLoading(false);
+    }
+  };
+
   const handleCourseCreated = (course: Course) => {
     setCourses((currentCourses) => [...currentCourses, course]);
   };
 
-  if (authLoading || coursesLoading) {
+  if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p>Loading...</p>
@@ -62,7 +81,24 @@ export default function CoursesPage() {
           <CreateCourseForm onCourseCreated={handleCourseCreated} />
         </div>
 
-        <CourseList courses={courses} />
+        {coursesError && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="text-sm text-red-700">{coursesError}</p>
+
+            <button
+              onClick={retryLoadCourses}
+              className="mt-3 text-sm font-medium text-red-700 underline"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {coursesLoading ? (
+          <p>Loading courses...</p>
+        ) : (
+          <CourseList courses={courses} />
+        )}
       </div>
     </main>
   );

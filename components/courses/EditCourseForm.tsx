@@ -16,8 +16,9 @@ export default function EditCourseForm({
   onCancel,
 }: EditCourseFormProps) {
   const [title, setTitle] = useState(course.title);
-  const [description, setDescription] = useState(course.description || "");
+  const [description, setDescription] = useState(course.description ?? "");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -27,6 +28,7 @@ export default function EditCourseForm({
     }
 
     setIsUpdating(true);
+    setError(null);
 
     try {
       const updatedCourse = await updateCourse(
@@ -35,9 +37,14 @@ export default function EditCourseForm({
         description.trim() || undefined,
       );
 
-      if (updatedCourse) {
-        onCourseUpdated(updatedCourse);
+      if (!updatedCourse) {
+        setError("Course could not be updated. Please try again.");
+        return;
       }
+
+      onCourseUpdated(updatedCourse);
+    } catch {
+      setError("Failed to update course. Please try again.");
     } finally {
       setIsUpdating(false);
     }
@@ -46,16 +53,16 @@ export default function EditCourseForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+      className="rounded-xl border border-gray-200 bg-white p-6"
     >
-      <h2 className="text-xl font-semibold text-gray-900">Edit course</h2>
+      <h2 className="text-xl font-semibold text-gray-900">Edit Course</h2>
 
       <div className="mt-5">
         <label
           htmlFor="edit-course-title"
-          className="text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700"
         >
-          Course name
+          Course Title
         </label>
 
         <input
@@ -63,14 +70,14 @@ export default function EditCourseForm({
           type="text"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-gray-500"
+          className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-gray-500"
         />
       </div>
 
       <div className="mt-4">
         <label
           htmlFor="edit-course-description"
-          className="text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700"
         >
           Description
         </label>
@@ -80,15 +87,21 @@ export default function EditCourseForm({
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           rows={3}
-          className="mt-2 w-full resize-none rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-gray-500"
+          className="mt-2 w-full resize-none rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-gray-500"
         />
       </div>
+
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
 
       <div className="mt-5 flex gap-3">
         <button
           type="submit"
           disabled={!title.trim() || isUpdating}
-          className="rounded-lg bg-gray-900 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isUpdating ? "Saving..." : "Save Changes"}
         </button>
@@ -97,7 +110,7 @@ export default function EditCourseForm({
           type="button"
           onClick={onCancel}
           disabled={isUpdating}
-          className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700"
+          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
         >
           Cancel
         </button>

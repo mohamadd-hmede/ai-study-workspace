@@ -1,29 +1,27 @@
 import puter from "@heyputer/puter.js";
 import type { Course } from "@/types/course";
 
-const COURSES_KEY = "courses";
+const COURSE_PREFIX = "course:";
+
+const getCourseKey = (id: string) => {
+  return `${COURSE_PREFIX}${id}`;
+};
 
 export const getCourses = async (): Promise<Course[]> => {
-  try {
-    const courses = await puter.kv.get(COURSES_KEY);
+  const records = await puter.kv.list({
+    pattern: `${COURSE_PREFIX}*`,
+    returnValues: true,
+  });
 
-    if (!courses) {
-      return [];
-    }
-
-    return courses as Course[];
-  } catch (error) {
-    console.error("Failed to get courses:", error);
-    return [];
-  }
+  return records
+    .map((record) => record.value as Course)
+    .sort((a, b) => a.createdAt - b.createdAt);
 };
 
 export const createCourse = async (
   title: string,
   description?: string,
 ): Promise<Course> => {
-  const courses = await getCourses();
-
   const now = Date.now();
 
   const newCourse: Course = {
@@ -34,7 +32,7 @@ export const createCourse = async (
     updatedAt: now,
   };
 
-  await puter.kv.set(COURSES_KEY, [...courses, newCourse]);
+  await puter.kv.set(getCourseKey(newCourse.id), newCourse);
 
   return newCourse;
 };
@@ -44,46 +42,48 @@ export const updateCourse = async (
   title: string,
   description?: string,
 ): Promise<Course | null> => {
-  const courses = await getCourses();
+  const key = getCourseKey(id);
 
-  const courseIndex = courses.findIndex((course) => course.id === id);
+  const existingCourse = await puter.kv.get(key);
 
-  if (courseIndex === -1) {
+  if (!existingCourse) {
     return null;
   }
 
+  const currentCourse = existingCourse as Course;
+
   const updatedCourse: Course = {
-    ...courses[courseIndex],
+    ...currentCourse,
     title,
     description,
     updatedAt: Date.now(),
   };
 
-  courses[courseIndex] = updatedCourse;
-
-  await puter.kv.set(COURSES_KEY, courses);
+  await puter.kv.set(key, updatedCourse);
 
   return updatedCourse;
 };
 
 export const deleteCourse = async (id: string): Promise<boolean> => {
-  const courses = await getCourses();
+  const key = getCourseKey(id);
 
-  const updatedCourses = courses.filter((course) => course.id !== id);
+  const existingCourse = await puter.kv.get(key);
 
-  if (updatedCourses.length === courses.length) {
+  if (!existingCourse) {
     return false;
   }
 
-  await puter.kv.set(COURSES_KEY, updatedCourses);
+  await puter.kv.del(key);
 
   return true;
 };
 
 export const getCourseById = async (id: string): Promise<Course | null> => {
-  const courses = await getCourses();
+  const course = await puter.kv.get(getCourseKey(id));
 
-  const course = courses.find((course) => course.id === id);
+  if (!course) {
+    return null;
+  }
 
-  return course ?? null;
+  return course as Course;
 };
