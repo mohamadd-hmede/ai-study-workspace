@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getCurrentUser, signIn } from "@/lib/puter";
 
 export default function SignInCard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSigningIn, setIsSigningIn] = useState(false);
+
+  const redirect = searchParams.get("redirect") || "/dashboard";
 
   const handleSignIn = async () => {
     if (isSigningIn) return;
@@ -19,13 +22,13 @@ export default function SignInCard() {
       const user = await getCurrentUser();
 
       if (user) {
-        router.push("/dashboard");
+        router.push(redirect);
       }
     } catch {
       const user = await getCurrentUser();
 
       if (user) {
-        router.push("/dashboard");
+        router.push(redirect);
       }
     } finally {
       setIsSigningIn(false);
