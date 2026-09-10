@@ -7,6 +7,10 @@ import { useAuth } from "@/components/AuthProvider";
 import EditCourseForm from "@/components/courses/EditCourseForm";
 import { deleteCourse, getCourseById } from "@/lib/courses";
 import type { Course } from "@/types/course";
+import MaterialUploadForm from "@/components/materials/MaterialUploadForm";
+import MaterialList from "@/components/materials/MaterialList";
+import { getMaterialsByCourse } from "@/lib/materials";
+import type { Material } from "@/types/material";
 
 export default function CourseDetailsPage() {
   const params = useParams<{ courseId: string }>();
@@ -19,6 +23,7 @@ export default function CourseDetailsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [materials, setMaterials] = useState<Material[]>([]);
 
   useEffect(() => {
     if (authLoading) {
@@ -41,6 +46,10 @@ export default function CourseDetailsPage() {
         }
 
         setCourse(currentCourse);
+
+        const currentMaterials = await getMaterialsByCourse(params.courseId);
+
+        setMaterials(currentMaterials);
       } catch {
         setCourseError("Failed to load course. Please try again.");
       } finally {
@@ -69,6 +78,9 @@ export default function CourseDetailsPage() {
       }
 
       setCourse(currentCourse);
+
+      const currentMaterials = await getMaterialsByCourse(params.courseId);
+      setMaterials(currentMaterials);
     } catch {
       setCourseError("Failed to load course. Please try again.");
     } finally {
@@ -211,6 +223,37 @@ export default function CourseDetailsPage() {
             />
           </div>
         )}
+
+        <div className="mt-10 border-t border-gray-200 pt-8">
+          <h2 className="text-2xl font-semibold text-gray-900">
+            Study Materials
+          </h2>
+
+          <div className="mt-6">
+            <MaterialUploadForm
+              courseId={course.id}
+              onMaterialUploaded={(material) =>
+                setMaterials((currentMaterials) => [
+                  ...currentMaterials,
+                  material,
+                ])
+              }
+            />
+          </div>
+
+          <div className="mt-8">
+            <MaterialList
+              materials={materials}
+              onMaterialDeleted={(materialId) =>
+                setMaterials((currentMaterials) =>
+                  currentMaterials.filter(
+                    (material) => material.id !== materialId,
+                  ),
+                )
+              }
+            />
+          </div>
+        </div>
       </div>
     </main>
   );
