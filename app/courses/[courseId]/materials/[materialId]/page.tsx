@@ -25,12 +25,18 @@ export default function MaterialPage() {
   };
 
   useEffect(() => {
+    let isActive = true;
+
     const loadMaterial = async () => {
       try {
         const currentMaterial = await getMaterialById(
           params.courseId,
           params.materialId,
         );
+
+        if (!isActive) {
+          return;
+        }
 
         if (!currentMaterial) {
           router.replace(`/courses/${params.courseId}`);
@@ -39,13 +45,21 @@ export default function MaterialPage() {
 
         setMaterial(currentMaterial);
       } catch {
-        setError("Failed to load material. Please try again.");
+        if (isActive) {
+          setError("Failed to load material. Please try again.");
+        }
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
 
     loadMaterial();
+
+    return () => {
+      isActive = false;
+    };
   }, [params.courseId, params.materialId, router]);
 
   if (loading) {

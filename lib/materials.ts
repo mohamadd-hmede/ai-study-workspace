@@ -81,12 +81,14 @@ export const deleteMaterial = async (material: Material): Promise<boolean> => {
     return false;
   }
 
+  const storedMaterial = existingMaterial as Material;
+
   await puter.kv.del(key);
 
   try {
-    await puter.fs.delete(material.path);
+    await puter.fs.delete(storedMaterial.path);
   } catch (error) {
-    await puter.kv.set(key, existingMaterial);
+    await puter.kv.set(key, storedMaterial);
     throw error;
   }
 
