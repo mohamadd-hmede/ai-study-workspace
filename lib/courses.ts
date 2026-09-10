@@ -1,5 +1,6 @@
 import puter from "@heyputer/puter.js";
 import type { Course } from "@/types/course";
+import { deleteMaterial, getMaterialsByCourse } from "@/lib/materials";
 
 const COURSE_PREFIX = "course:";
 
@@ -71,6 +72,12 @@ export const deleteCourse = async (id: string): Promise<boolean> => {
 
   if (!existingCourse) {
     return false;
+  }
+
+  const materials = await getMaterialsByCourse(id);
+
+  for (const material of materials) {
+    await deleteMaterial(material);
   }
 
   await puter.kv.del(key);
