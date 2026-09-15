@@ -11,6 +11,7 @@ import type { Material } from "@/types/material";
 import type { ChatMessage } from "@/types/chat";
 
 import MaterialPreview from "@/components/material-preview";
+import MaterialSummary from "@/components/materials/MaterialSummary";
 
 import ReactMarkdown from "react-markdown";
 
@@ -153,6 +154,7 @@ export default function MaterialPage() {
                 <MaterialPreview material={material} />
               </div>
             </div>
+
             <div className="rounded-xl border border-gray-200 p-4">
               <h2 className="text-xl font-semibold text-gray-900">
                 AI Assistant
@@ -208,6 +210,8 @@ export default function MaterialPage() {
               </div>
             </div>
           </div>
+
+          <MaterialSummary material={material} />
         </div>
       </div>
     </main>
