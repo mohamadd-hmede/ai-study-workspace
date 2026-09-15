@@ -138,23 +138,7 @@ export default function MaterialSummary({ material }: MaterialSummaryProps) {
       const sourceRect = sourceElement.getBoundingClientRect();
 
       const sourceWidthPx = sourceRect.width;
-
       const totalHeightPx = sourceElement.scrollHeight;
-
-      const unsafeZones = collectUnsafeZones(sourceElement);
-
-      const canvas = await html2canvas(sourceElement, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        logging: false,
-      });
-
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
 
       const contentWidthMm = PDF_PAGE_WIDTH_MM - PDF_MARGIN_MM * 2;
 
@@ -164,75 +148,88 @@ export default function MaterialSummary({ material }: MaterialSummaryProps) {
 
       const pageHeightPx = contentHeightMm * pxPerMm;
 
+      const unsafeZones = collectUnsafeZones(sourceElement);
+
       const breakPoints = computeBreakPoints(
         totalHeightPx,
         pageHeightPx,
         unsafeZones,
       );
 
-      const canvasScaleY = canvas.height / totalHeightPx;
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
 
       for (let index = 0; index < breakPoints.length - 1; index++) {
         const sourceTop = breakPoints[index];
 
         const sourceBottom = breakPoints[index + 1];
 
-        const sliceTopPx = Math.round(sourceTop * canvasScaleY);
+        const sourceSliceHeight = sourceBottom - sourceTop;
 
-        const sliceBottomPx = Math.round(sourceBottom * canvasScaleY);
-
-        const sliceHeightPx = sliceBottomPx - sliceTopPx;
-
-        if (sliceHeightPx <= 0) {
+        if (sourceSliceHeight <= 0) {
           continue;
         }
 
-        const pageCanvas = document.createElement("canvas");
+        const captureContainer = document.createElement("div");
 
-        pageCanvas.width = canvas.width;
+        captureContainer.style.position = "fixed";
+        captureContainer.style.left = "-10000px";
+        captureContainer.style.top = "0";
+        captureContainer.style.width = `${sourceWidthPx}px`;
+        captureContainer.style.height = `${sourceSliceHeight}px`;
+        captureContainer.style.overflow = "hidden";
+        captureContainer.style.backgroundColor = "#ffffff";
+        captureContainer.style.pointerEvents = "none";
 
-        pageCanvas.height = sliceHeightPx;
+        const clonedSummary = sourceElement.cloneNode(true) as HTMLElement;
 
-        const context = pageCanvas.getContext("2d");
+        clonedSummary.removeAttribute("id");
 
-        if (!context) {
-          throw new Error("Could not create PDF canvas.");
+        clonedSummary.style.width = `${sourceWidthPx}px`;
+
+        clonedSummary.style.maxWidth = "none";
+        clonedSummary.style.margin = "0";
+
+        clonedSummary.style.transform = `translateY(-${sourceTop}px)`;
+
+        clonedSummary.style.transformOrigin = "top left";
+
+        captureContainer.appendChild(clonedSummary);
+
+        document.body.appendChild(captureContainer);
+
+        try {
+          const canvas = await html2canvas(captureContainer, {
+            scale: 2,
+            width: sourceWidthPx,
+            height: sourceSliceHeight,
+            backgroundColor: "#ffffff",
+            useCORS: true,
+            logging: false,
+          });
+
+          const imageData = canvas.toDataURL("image/png");
+
+          const imageHeightMm = sourceSliceHeight / pxPerMm;
+
+          if (index > 0) {
+            pdf.addPage();
+          }
+
+          pdf.addImage(
+            imageData,
+            "PNG",
+            PDF_MARGIN_MM,
+            PDF_MARGIN_MM,
+            contentWidthMm,
+            imageHeightMm,
+          );
+        } finally {
+          captureContainer.remove();
         }
-
-        context.fillStyle = "#ffffff";
-
-        context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-
-        context.drawImage(
-          canvas,
-          0,
-          sliceTopPx,
-          canvas.width,
-          sliceHeightPx,
-          0,
-          0,
-          canvas.width,
-          sliceHeightPx,
-        );
-
-        const imageData = pageCanvas.toDataURL("image/png");
-
-        const sourceSliceHeight = sourceBottom - sourceTop;
-
-        const imageHeightMm = sourceSliceHeight / pxPerMm;
-
-        if (index > 0) {
-          pdf.addPage();
-        }
-
-        pdf.addImage(
-          imageData,
-          "PNG",
-          PDF_MARGIN_MM,
-          PDF_MARGIN_MM,
-          contentWidthMm,
-          imageHeightMm,
-        );
       }
 
       const fileName = material.name.replace(/\.[^/.]+$/, "");
@@ -353,6 +350,8 @@ export default function MaterialSummary({ material }: MaterialSummaryProps) {
                   {children}
                 </td>
               ),
+
+              img: () => null,
             }}
           >
             {summary}
