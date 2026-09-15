@@ -13,13 +13,17 @@ const isValidQuiz = (value: unknown): value is GeneratedQuiz => {
   if (
     typeof quiz.title !== "string" ||
     !Array.isArray(quiz.questions) ||
-    quiz.questions.length === 0
+    quiz.questions.length !== 10
   ) {
     return false;
   }
 
-  return quiz.questions.every(
-    (question) =>
+  return quiz.questions.every((question) => {
+    if (!question || typeof question !== "object") {
+      return false;
+    }
+
+    return (
       typeof question.id === "string" &&
       typeof question.question === "string" &&
       Array.isArray(question.options) &&
@@ -28,8 +32,9 @@ const isValidQuiz = (value: unknown): value is GeneratedQuiz => {
       Number.isInteger(question.correctAnswer) &&
       question.correctAnswer >= 0 &&
       question.correctAnswer <= 3 &&
-      typeof question.explanation === "string",
-  );
+      typeof question.explanation === "string"
+    );
+  });
 };
 
 export const generateMaterialQuiz = async (
