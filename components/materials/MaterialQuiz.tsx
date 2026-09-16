@@ -115,6 +115,7 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
                         <button
                           key={optionIndex}
                           type="button"
+                          aria-pressed={isSelected}
                           onClick={() =>
                             setSelectedAnswers((previousAnswers) => ({
                               ...previousAnswers,
