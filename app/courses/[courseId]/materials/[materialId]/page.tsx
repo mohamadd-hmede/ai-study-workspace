@@ -11,6 +11,7 @@ import type { Material } from "@/types/material";
 import MaterialPreview from "@/components/materials/MaterialPreview";
 import MaterialChat from "@/components/materials/MaterialChat";
 import MaterialSummary from "@/components/materials/MaterialSummary";
+import MaterialQuiz from "@/components/materials/MaterialQuiz";
 
 export default function MaterialPage() {
   const params = useParams<{
@@ -118,6 +119,8 @@ export default function MaterialPage() {
           </div>
 
           <MaterialSummary material={material} />
+
+          <MaterialQuiz material={material} />
         </div>
       </div>
     </main>
