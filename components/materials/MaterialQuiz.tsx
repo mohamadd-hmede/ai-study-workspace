@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { generateMaterialQuiz } from "@/lib/material-quiz";
 
 import type { Material } from "@/types/material";
 import type { GeneratedQuiz } from "@/types/quiz";
+
+import { getQuizAttemptsByMaterial, saveQuizAttempt } from "@/lib/quiz-history";
+import type { QuizAttempt } from "@/types/quiz-history";
 
 type MaterialQuizProps = {
   material: Material;
@@ -20,6 +23,31 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
     Record<number, number>
   >({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizHistory, setQuizHistory] = useState<QuizAttempt[]>([]);
+  const [selectedHistoryAttempt, setSelectedHistoryAttempt] =
+    useState<QuizAttempt | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadQuizHistory = async () => {
+      try {
+        const attempts = await getQuizAttemptsByMaterial(material.id);
+
+        if (isActive) {
+          setQuizHistory(attempts);
+        }
+      } catch (error) {
+        console.error("Failed to load quiz history:", error);
+      }
+    };
+
+    loadQuizHistory();
+
+    return () => {
+      isActive = false;
+    };
+  }, [material.id]);
 
   const handleGenerateQuiz = async () => {
     if (generatingQuiz) {
@@ -45,7 +73,23 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
     }
   };
 
-  const handleSubmitQuiz = () => {
+  const calculateScore = () => {
+    if (!quiz) {
+      return 0;
+    }
+
+    return quiz.questions.reduce((score, question, questionIndex) => {
+      const selectedAnswer = selectedAnswers[questionIndex];
+
+      if (selectedAnswer === question.correctAnswer) {
+        return score + 1;
+      }
+
+      return score;
+    }, 0);
+  };
+
+  const handleSubmitQuiz = async () => {
     if (!quiz) {
       return;
     }
@@ -53,6 +97,23 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
     if (Object.keys(selectedAnswers).length !== quiz.questions.length) {
       return;
     }
+
+    const score = calculateScore();
+
+    const attempt: QuizAttempt = {
+      id: crypto.randomUUID(),
+      materialId: material.id,
+      courseId: material.courseId,
+      quiz,
+      selectedAnswers,
+      score,
+      totalQuestions: quiz.questions.length,
+      completedAt: Date.now(),
+    };
+
+    await saveQuizAttempt(attempt);
+
+    setQuizHistory((previousHistory) => [attempt, ...previousHistory]);
 
     setQuizSubmitted(true);
   };
@@ -90,9 +151,56 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
                 Quiz Completed
               </h3>
 
-              <p className="mt-2 text-sm text-gray-600">
-                You have answered all {quiz.questions.length} questions.
+              <p className="mt-3 text-3xl font-bold text-gray-900">
+                {calculateScore()} / {quiz.questions.length}
               </p>
+
+              <p className="mt-2 text-sm text-gray-600">
+                You scored{" "}
+                {Math.round((calculateScore() / quiz.questions.length) * 100)}
+                %.
+              </p>
+
+              <div className="mt-6 space-y-4 text-left">
+                {quiz.questions.map((question, questionIndex) => {
+                  const selectedAnswer = selectedAnswers[questionIndex];
+                  const isCorrect = selectedAnswer === question.correctAnswer;
+
+                  return (
+                    <div
+                      key={question.id}
+                      className="rounded-lg border border-gray-200 p-4"
+                    >
+                      <p className="font-medium text-gray-900">
+                        {questionIndex + 1}. {question.question}
+                      </p>
+
+                      <p
+                        className={`mt-2 text-sm font-medium ${
+                          isCorrect ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {isCorrect ? "Correct" : "Incorrect"}
+                      </p>
+
+                      <p className="mt-2 text-sm text-gray-700">
+                        Your answer: {question.options[selectedAnswer]}
+                      </p>
+
+                      {!isCorrect && (
+                        <p className="mt-1 text-sm text-gray-700">
+                          Correct answer:{" "}
+                          {question.options[question.correctAnswer]}
+                        </p>
+                      )}
+
+                      <p className="mt-2 text-sm text-gray-600">
+                        {question.explanation}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="mt-4">
@@ -180,6 +288,134 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
               </div>
             </div>
           )}
+        </div>
+      )}
+      {quizHistory.length > 0 && (
+        <div className="mt-8 border-t border-gray-200 pt-6">
+          <h3 className="text-lg font-semibold text-gray-900">Quiz History</h3>
+
+          <p className="mt-1 text-sm text-gray-500">
+            Your previous attempts for this material.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {quizHistory.map((attempt) => {
+              const percentage = Math.round(
+                (attempt.score / attempt.totalQuestions) * 100,
+              );
+
+              return (
+                <button
+                  key={attempt.id}
+                  type="button"
+                  onClick={() => setSelectedHistoryAttempt(attempt)}
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 p-4 text-left hover:bg-gray-50"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {attempt.quiz.title}
+                    </p>
+
+                    <p className="mt-1 text-sm text-gray-500">
+                      {new Date(attempt.completedAt).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-900">
+                      {attempt.score} / {attempt.totalQuestions}
+                    </p>
+
+                    <p className="text-sm text-gray-500">{percentage}%</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {selectedHistoryAttempt && (
+        <div className="mt-6 rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Previous Quiz Result
+              </h3>
+
+              <p className="mt-1 text-sm text-gray-500">
+                {new Date(selectedHistoryAttempt.completedAt).toLocaleString()}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedHistoryAttempt(null)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="mt-4">
+            <p className="text-2xl font-bold text-gray-900">
+              {selectedHistoryAttempt.score} /{" "}
+              {selectedHistoryAttempt.totalQuestions}
+            </p>
+
+            <p className="mt-1 text-sm text-gray-600">
+              {Math.round(
+                (selectedHistoryAttempt.score /
+                  selectedHistoryAttempt.totalQuestions) *
+                  100,
+              )}
+              %
+            </p>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {selectedHistoryAttempt.quiz.questions.map(
+              (question, questionIndex) => {
+                const selectedAnswer =
+                  selectedHistoryAttempt.selectedAnswers[questionIndex];
+
+                const isCorrect = selectedAnswer === question.correctAnswer;
+
+                return (
+                  <div
+                    key={question.id}
+                    className="rounded-lg border border-gray-200 p-4"
+                  >
+                    <p className="font-medium text-gray-900">
+                      {questionIndex + 1}. {question.question}
+                    </p>
+
+                    <p
+                      className={`mt-2 text-sm font-medium ${
+                        isCorrect ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {isCorrect ? "Correct" : "Incorrect"}
+                    </p>
+
+                    <p className="mt-2 text-sm text-gray-700">
+                      Your answer: {question.options[selectedAnswer]}
+                    </p>
+
+                    {!isCorrect && (
+                      <p className="mt-1 text-sm text-gray-700">
+                        Correct answer:{" "}
+                        {question.options[question.correctAnswer]}
+                      </p>
+                    )}
+
+                    <p className="mt-2 text-sm text-gray-600">
+                      {question.explanation}
+                    </p>
+                  </div>
+                );
+              },
+            )}
+          </div>
         </div>
       )}
     </div>
