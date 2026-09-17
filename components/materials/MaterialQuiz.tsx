@@ -26,6 +26,7 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
   const [quizHistory, setQuizHistory] = useState<QuizAttempt[]>([]);
   const [selectedHistoryAttempt, setSelectedHistoryAttempt] =
     useState<QuizAttempt | null>(null);
+  const [submittingQuiz, setSubmittingQuiz] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -35,10 +36,16 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
         const attempts = await getQuizAttemptsByMaterial(material.id);
 
         if (isActive) {
+          setSelectedHistoryAttempt(null);
           setQuizHistory(attempts);
         }
       } catch (error) {
         console.error("Failed to load quiz history:", error);
+
+        if (isActive) {
+          setSelectedHistoryAttempt(null);
+          setQuizHistory([]);
+        }
       }
     };
 
@@ -90,7 +97,7 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
   };
 
   const handleSubmitQuiz = async () => {
-    if (!quiz) {
+    if (!quiz || submittingQuiz) {
       return;
     }
 
@@ -98,24 +105,33 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
       return;
     }
 
-    const score = calculateScore();
+    setSubmittingQuiz(true);
+    setQuizError(null);
 
-    const attempt: QuizAttempt = {
-      id: crypto.randomUUID(),
-      materialId: material.id,
-      courseId: material.courseId,
-      quiz,
-      selectedAnswers,
-      score,
-      totalQuestions: quiz.questions.length,
-      completedAt: Date.now(),
-    };
+    try {
+      const score = calculateScore();
 
-    await saveQuizAttempt(attempt);
+      const attempt: QuizAttempt = {
+        id: crypto.randomUUID(),
+        materialId: material.id,
+        courseId: material.courseId,
+        quiz,
+        selectedAnswers,
+        score,
+        totalQuestions: quiz.questions.length,
+        completedAt: Date.now(),
+      };
 
-    setQuizHistory((previousHistory) => [attempt, ...previousHistory]);
+      await saveQuizAttempt(attempt);
 
-    setQuizSubmitted(true);
+      setQuizHistory((previousHistory) => [attempt, ...previousHistory]);
+      setQuizSubmitted(true);
+    } catch (error) {
+      console.error("Failed to save quiz attempt:", error);
+      setQuizError("Failed to save your quiz result. Please try again.");
+    } finally {
+      setSubmittingQuiz(false);
+    }
   };
 
   return (
@@ -266,7 +282,7 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
                       }
                       className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Submit Quiz
+                      {submittingQuiz ? "Submitting..." : "Submit Quiz"}{" "}
                     </button>
                   ) : (
                     <button
@@ -277,7 +293,8 @@ export default function MaterialQuiz({ material }: MaterialQuizProps) {
                         )
                       }
                       disabled={
-                        selectedAnswers[currentQuestionIndex] === undefined
+                        selectedAnswers[currentQuestionIndex] === undefined ||
+                        submittingQuiz
                       }
                       className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
