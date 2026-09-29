@@ -130,7 +130,14 @@ export const getMaterialsByCourse = async (
   });
 
   return records
-    .map((record) => normalizeMaterial(record.value as Material))
+    .flatMap((record) => {
+      try {
+        return [normalizeMaterial(record.value as Material)];
+      } catch (error) {
+        console.warn("Skipping unsupported stored material:", error);
+        return [];
+      }
+    })
     .sort((a, b) => a.createdAt - b.createdAt);
 };
 

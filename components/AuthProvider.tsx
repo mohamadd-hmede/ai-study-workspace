@@ -38,17 +38,24 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const loadAuth = async () => {
-      const currentUser = await getCurrentUser();
+      try {
+        const currentUser = await getCurrentUser();
 
-      let currentDisplayName: string | null = null;
+        let currentDisplayName: string | null = null;
 
-      if (currentUser) {
-        currentDisplayName = await getDisplayName();
+        if (currentUser) {
+          currentDisplayName = await getDisplayName();
+        }
+
+        setUser(currentUser);
+        setDisplayNameState(currentDisplayName);
+      } catch (error) {
+        console.error("Failed to load authentication state:", error);
+        setUser(null);
+        setDisplayNameState(null);
+      } finally {
+        setLoading(false);
       }
-
-      setUser(currentUser);
-      setDisplayNameState(currentDisplayName);
-      setLoading(false);
     };
 
     void loadAuth();

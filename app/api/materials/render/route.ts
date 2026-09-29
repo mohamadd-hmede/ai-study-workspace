@@ -68,15 +68,20 @@ export async function POST(request: Request) {
     await writeFile(inputPath, fileBuffer);
 
     // DOCX/PPTX -> PDF
+    const libreOfficeProfile = path.join(tempDirectory, "libreoffice-profile");
+    const libreOfficeProfileUrl = new URL(
+      `file:///${libreOfficeProfile.replace(/\\/g, "/")}`,
+    ).href;
+
     await execFileAsync(LIBREOFFICE_PATH, [
       "--headless",
+      `-env:UserInstallation=${libreOfficeProfileUrl}`,
       "--convert-to",
       "pdf",
       "--outdir",
       tempDirectory,
       inputPath,
     ]);
-
     // PDF -> one JPEG per page/slide
     await execFileAsync(PDFTOCAIRO_PATH, [
       "-jpeg",
