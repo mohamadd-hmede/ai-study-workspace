@@ -3,26 +3,92 @@
 import { useEffect, useRef, useState } from "react";
 import { puter } from "@heyputer/puter.js";
 import { renderAsync } from "docx-preview";
+import * as XLSX from "xlsx";
 
 import type { Material } from "@/types/material";
 import type { PptxViewer as PptxViewerType } from "@aiden0z/pptx-renderer";
+
+import { getMaterialFileCapability } from "@/lib/material-file-capabilities";
+
+import { getMaterialFileLabel } from "@/components/materials/MaterialFileIcon";
 
 type MaterialPreviewProps = {
   material: Material;
 };
 
-const DOCX_MIME_TYPE =
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+type SpreadsheetCell = string | number | boolean | null;
 
-const PPTX_MIME_TYPE =
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+const parseCsv = (text: string): string[][] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let insideQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const nextCharacter = text[index + 1];
+
+    if (character === '"') {
+      if (insideQuotes && nextCharacter === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+
+      continue;
+    }
+
+    if (character === "," && !insideQuotes) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if ((character === "\n" || character === "\r") && !insideQuotes) {
+      if (character === "\r" && nextCharacter === "\n") {
+        index += 1;
+      }
+
+      row.push(cell);
+
+      if (row.some((value) => value.trim())) {
+        rows.push(row);
+      }
+
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += character;
+  }
+
+  row.push(cell);
+
+  if (row.some((value) => value.trim())) {
+    rows.push(row);
+  }
+
+  return rows;
+};
 
 export default function MaterialPreview({ material }: MaterialPreviewProps) {
+  const capability =
+    material.capability ??
+    getMaterialFileCapability(
+      material.originalFileName || material.name,
+      material.type,
+    );
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [textContent, setTextContent] = useState<string | null>(null);
+
+  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [activeSheet, setActiveSheet] = useState<string | null>(null);
 
   const [docxBlob, setDocxBlob] = useState<Blob | null>(null);
   const [docxError, setDocxError] = useState(false);
@@ -81,6 +147,9 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
 
         setTextContent(null);
 
+        setWorkbook(null);
+        setActiveSheet(null);
+
         setDocxBlob(null);
         setDocxError(false);
         setDocxScale(1);
@@ -99,7 +168,11 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
           type: material.type || "application/octet-stream",
         });
 
-        if (material.type === "text/plain") {
+        if (
+          capability?.previewStrategy === "text" ||
+          capability?.previewStrategy === "code" ||
+          capability?.previewStrategy === "table"
+        ) {
           const text = await typedFile.text();
 
           if (!isActive) {
@@ -109,11 +182,30 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
           setTextContent(text);
         }
 
-        if (material.type === DOCX_MIME_TYPE) {
+        if (capability?.previewStrategy === "spreadsheet") {
+          const arrayBuffer = await typedFile.arrayBuffer();
+
+          if (!isActive) {
+            return;
+          }
+
+          const parsedWorkbook = XLSX.read(arrayBuffer, {
+            type: "array",
+          });
+
+          if (!isActive) {
+            return;
+          }
+
+          setWorkbook(parsedWorkbook);
+          setActiveSheet(parsedWorkbook.SheetNames[0] ?? null);
+        }
+
+        if (capability?.previewStrategy === "docx") {
           setDocxBlob(typedFile);
         }
 
-        if (material.type === PPTX_MIME_TYPE) {
+        if (capability?.previewStrategy === "pptx") {
           const arrayBuffer = await typedFile.arrayBuffer();
 
           if (!isActive) {
@@ -124,9 +216,10 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         }
 
         objectUrl = URL.createObjectURL(typedFile);
-
         setPreviewUrl(objectUrl);
-      } catch {
+      } catch (error) {
+        console.error("Material preview error:", error);
+
         if (isActive) {
           setError("Failed to load material preview.");
         }
@@ -137,7 +230,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
       }
     };
 
-    loadPreview();
+    void loadPreview();
 
     return () => {
       isActive = false;
@@ -146,7 +239,13 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [material.path, material.type]);
+  }, [
+    material.path,
+    material.type,
+    material.name,
+    material.originalFileName,
+    capability?.previewStrategy,
+  ]);
 
   useEffect(() => {
     const renderDocx = async () => {
@@ -183,7 +282,6 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         }
 
         const parentWidth = container.parentElement?.clientWidth ?? 0;
-
         const pageWidth = renderedPage.offsetWidth;
 
         if (parentWidth > 0 && pageWidth > 0) {
@@ -196,7 +294,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
       }
     };
 
-    renderDocx();
+    void renderDocx();
   }, [docxBlob]);
 
   useEffect(() => {
@@ -252,7 +350,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
       }
     };
 
-    renderPptx();
+    void renderPptx();
 
     return () => {
       cancelled = true;
@@ -284,17 +382,19 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     return null;
   }
 
-  if (material.type === "application/pdf") {
+  if (capability?.previewStrategy === "pdf") {
     return (
-      <iframe
-        src={previewUrl}
-        title={material.name}
-        className="h-[600px] w-full rounded-lg border border-gray-200"
-      />
+      <div className="h-[520px] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 xl:h-[650px]">
+        <iframe
+          src={previewUrl}
+          title={material.name}
+          className="h-full w-full"
+        />
+      </div>
     );
   }
 
-  if (material.type.startsWith("image/")) {
+  if (capability?.previewStrategy === "image") {
     return (
       <div className="flex min-h-96 items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -307,15 +407,183 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     );
   }
 
-  if (material.type === "text/plain" && textContent !== null) {
+  if (capability?.previewStrategy === "text" && textContent !== null) {
     return (
-      <pre className="max-h-[600px] overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+      <pre
+        dir="auto"
+        className="max-h-[600px] overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm leading-6 text-gray-700"
+      >
         {textContent}
       </pre>
     );
   }
 
-  if (material.type === DOCX_MIME_TYPE) {
+  if (capability?.previewStrategy === "code" && textContent !== null) {
+    const fileLabel = getMaterialFileLabel(material);
+
+    return (
+      <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
+        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
+          <span className="text-xs font-medium text-slate-400">
+            {material.name}
+          </span>
+
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            {fileLabel}
+          </span>
+        </div>
+
+        <pre
+          dir="ltr"
+          className="max-h-[600px] overflow-auto p-4 text-left font-mono text-sm leading-6 text-slate-100"
+        >
+          <code>{textContent}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  if (capability?.previewStrategy === "table" && textContent !== null) {
+    const rows = parseCsv(textContent);
+
+    if (rows.length === 0) {
+      return (
+        <div className="flex min-h-96 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
+          <p className="text-sm text-slate-500">
+            This CSV file does not contain any readable rows.
+          </p>
+        </div>
+      );
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    return (
+      <div className="max-h-[600px] overflow-auto rounded-xl border border-slate-200 bg-white">
+        <table className="min-w-full border-collapse text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-100">
+            <tr>
+              {headers.map((header, index) => (
+                <th
+                  key={index}
+                  className="whitespace-nowrap border-b border-r border-slate-200 px-4 py-3 text-left font-semibold text-slate-900 last:border-r-0"
+                >
+                  {header || `Column ${index + 1}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {dataRows.map((row, rowIndex) => (
+              <tr key={rowIndex} className="transition hover:bg-slate-50">
+                {headers.map((_, columnIndex) => (
+                  <td
+                    key={columnIndex}
+                    className="whitespace-nowrap border-b border-r border-slate-100 px-4 py-3 text-slate-700 last:border-r-0"
+                  >
+                    {row[columnIndex] ?? ""}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  if (
+    capability?.previewStrategy === "spreadsheet" &&
+    workbook &&
+    activeSheet
+  ) {
+    const sheet = workbook.Sheets[activeSheet];
+
+    const rows = XLSX.utils.sheet_to_json<SpreadsheetCell[]>(sheet, {
+      header: 1,
+      defval: "",
+      raw: false,
+    });
+
+    const columnCount = rows.reduce(
+      (largest, row) => Math.max(largest, row.length),
+      0,
+    );
+
+    return (
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
+          <p className="truncate text-xs font-medium text-slate-500">
+            {material.name}
+          </p>
+
+          <p className="ml-4 shrink-0 text-xs text-slate-400">
+            {rows.length} rows · {columnCount} columns
+          </p>
+        </div>
+
+        {workbook.SheetNames.length > 1 && (
+          <div className="flex overflow-x-auto border-b border-slate-200 bg-white">
+            {workbook.SheetNames.map((sheetName) => {
+              const isActive = sheetName === activeSheet;
+
+              return (
+                <button
+                  key={sheetName}
+                  type="button"
+                  onClick={() => setActiveSheet(sheetName)}
+                  className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition ${
+                    isActive
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  }`}
+                >
+                  {sheetName}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {rows.length === 0 || columnCount === 0 ? (
+          <div className="flex min-h-96 items-center justify-center">
+            <p className="text-sm text-slate-500">
+              This spreadsheet sheet is empty.
+            </p>
+          </div>
+        ) : (
+          <div className="max-h-[600px] overflow-auto">
+            <table className="min-w-full border-collapse text-sm">
+              <tbody>
+                {rows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {Array.from({ length: columnCount }).map(
+                      (_, columnIndex) => (
+                        <td
+                          key={columnIndex}
+                          className={`min-w-32 whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-slate-700 ${
+                            rowIndex === 0
+                              ? "sticky top-0 z-10 bg-slate-100 font-semibold text-slate-900"
+                              : "bg-white"
+                          }`}
+                        >
+                          {String(row[columnIndex] ?? "")}
+                        </td>
+                      ),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (capability?.previewStrategy === "docx") {
     if (docxError) {
       return (
         <div className="flex min-h-96 items-center justify-center">
@@ -361,7 +629,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     );
   }
 
-  if (material.type === PPTX_MIME_TYPE) {
+  if (capability?.previewStrategy === "pptx") {
     if (pptxError) {
       return (
         <div className="flex min-h-96 items-center justify-center">
@@ -409,7 +677,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         <p className="font-medium text-gray-900">Preview not available</p>
 
         <p className="mt-2 text-sm text-gray-500">
-          This file type cannot be previewed directly in the browser.
+          This file type cannot be previewed directly in StudyFlow.
         </p>
       </div>
     </div>

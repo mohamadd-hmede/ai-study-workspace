@@ -19,6 +19,9 @@ export default function EditCourseForm({
   const [description, setDescription] = useState(course.description ?? "");
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasChanges =
+    title.trim() !== course.title ||
+    description.trim() !== (course.description ?? "");
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -53,16 +56,20 @@ export default function EditCourseForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border border-gray-200 bg-white p-6"
+      className="rounded-xl border border-slate-200 bg-white p-6 shadow-xl"
     >
-      <h2 className="text-xl font-semibold text-gray-900">Edit Course</h2>
+      <h2 className="text-xl font-semibold text-slate-950">Edit Course</h2>
 
-      <div className="mt-5">
+      <p className="mt-1 text-sm text-slate-500">
+        Update your course information.
+      </p>
+
+      <div className="mt-6">
         <label
           htmlFor="edit-course-title"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-slate-900"
         >
-          Course Title
+          Course Name
         </label>
 
         <input
@@ -70,24 +77,26 @@ export default function EditCourseForm({
           type="text"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-gray-500"
+          placeholder="Enter course name..."
+          className="mt-2 h-11 w-full rounded-lg border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500"
         />
       </div>
 
-      <div className="mt-4">
+      <div className="mt-5">
         <label
           htmlFor="edit-course-description"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-slate-900"
         >
-          Description
+          Description (optional)
         </label>
 
         <textarea
           id="edit-course-description"
           value={description}
           onChange={(event) => setDescription(event.target.value)}
-          rows={3}
-          className="mt-2 w-full resize-none rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-gray-500"
+          placeholder="Add a short description..."
+          rows={4}
+          className="mt-2 w-full resize-none rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500"
         />
       </div>
 
@@ -97,22 +106,22 @@ export default function EditCourseForm({
         </div>
       )}
 
-      <div className="mt-5 flex gap-3">
-        <button
-          type="submit"
-          disabled={!title.trim() || isUpdating}
-          className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isUpdating ? "Saving..." : "Save Changes"}
-        </button>
-
+      <div className="mt-6 grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={onCancel}
           disabled={isUpdating}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          className="h-11 rounded-lg bg-slate-100 text-sm font-medium text-slate-900 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancel
+        </button>
+
+        <button
+          type="submit"
+          disabled={!title.trim() || !hasChanges || isUpdating}
+          className="h-11 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isUpdating ? "Saving..." : "Save Changes"}
         </button>
       </div>
     </form>

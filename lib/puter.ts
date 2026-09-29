@@ -15,3 +15,25 @@ export const getCurrentUser = async () => {
     return null;
   }
 };
+
+export const requestPlanUpgrade = async () => {
+  return await puter.ui.requestUpgrade();
+};
+
+export const getMonthlyUsage = async () => {
+  return await puter.auth.getMonthlyUsage();
+};
+
+export const getStorageSpace = async () => {
+  return await puter.fs.space();
+};
+
+export const getDisplayName = async () => {
+  const displayName = await puter.kv.get("profile:displayName");
+
+  return typeof displayName === "string" ? displayName : null;
+};
+
+export const setDisplayName = async (displayName: string) => {
+  await puter.kv.set("profile:displayName", displayName.trim());
+};

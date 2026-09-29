@@ -2,25 +2,28 @@
 
 import {
   createContext,
-  ReactNode,
+  type ReactNode,
   useContext,
   useEffect,
   useState,
 } from "react";
-import { getCurrentUser } from "@/lib/puter";
+import { getCurrentUser, getDisplayName } from "@/lib/puter";
 
 type User = Awaited<ReturnType<typeof getCurrentUser>>;
 
 type AuthContextType = {
   user: User;
+  displayName: string | null;
   loading: boolean;
   refreshUser: () => Promise<void>;
+  refreshDisplayName: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(null);
+  const [displayName, setDisplayNameState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshUser = async () => {
@@ -28,17 +31,39 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     setUser(currentUser);
   };
 
+  const refreshDisplayName = async () => {
+    const currentDisplayName = await getDisplayName();
+    setDisplayNameState(currentDisplayName);
+  };
+
   useEffect(() => {
-    const loadUser = async () => {
-      await refreshUser();
+    const loadAuth = async () => {
+      const currentUser = await getCurrentUser();
+
+      let currentDisplayName: string | null = null;
+
+      if (currentUser) {
+        currentDisplayName = await getDisplayName();
+      }
+
+      setUser(currentUser);
+      setDisplayNameState(currentDisplayName);
       setLoading(false);
     };
 
-    loadUser();
+    void loadAuth();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        displayName,
+        loading,
+        refreshUser,
+        refreshDisplayName,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
