@@ -148,41 +148,39 @@ export default function MaterialPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-          <div className="min-w-0">
+        <div className="mt-5 grid items-stretch gap-5 xl:h-[650px] xl:grid-cols-[1.08fr_0.92fr]">
+          <div className="min-h-0 min-w-0">
             <MaterialPreview material={material} />
           </div>
 
-          <div className="min-w-0">
+          <div className="min-h-0 min-w-0">
             <MaterialChat material={material} />
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <div className="min-w-0">
-            <Link
-              href={`/courses/${material.courseId}/materials/${material.id}/summary`}
-              className="flex min-h-[120px] w-full items-center justify-center gap-4 rounded-xl border border-blue-100 bg-blue-50/70 px-6 py-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:shadow-sm"
-            >
-              <FileText
-                className="h-8 w-8 shrink-0 text-blue-600"
-                strokeWidth={2.2}
-              />
+        <div className="mt-5 grid items-stretch gap-4 md:grid-cols-2">
+          {/* Summary */}
+          <Link
+            href={`/courses/${material.courseId}/materials/${material.id}/summary`}
+            className="flex h-full min-w-0 items-center justify-center gap-4 rounded-xl border border-blue-100 bg-blue-50/70 px-6 py-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:shadow-sm"
+          >
+            <FileText
+              className="h-8 w-8 shrink-0 text-blue-600"
+              strokeWidth={2.2}
+            />
 
-              <div>
-                <h2 className="font-semibold text-slate-900">
-                  Generate Summary
-                </h2>
+            <div>
+              <h2 className="font-semibold text-slate-900">Generate Summary</h2>
 
-                <p className="mt-0.5 text-sm text-slate-600">
-                  Get a concise summary of this material
-                </p>
-              </div>
-            </Link>
-          </div>
+              <p className="mt-0.5 text-sm text-slate-600">
+                Get a concise summary of this material
+              </p>
+            </div>
+          </Link>
 
-          <div className="min-w-0 rounded-xl border border-emerald-100 bg-emerald-50/70 px-6 py-4">
-            <div className="flex items-center gap-4">
+          {/* Quiz */}
+          <div className="flex h-full min-w-0 flex-col rounded-xl border border-emerald-100 bg-emerald-50/70 px-6 py-4">
+            <div className="flex flex-1 items-center gap-4">
               <ListChecks
                 className="h-8 w-8 shrink-0 text-emerald-600"
                 strokeWidth={2.2}

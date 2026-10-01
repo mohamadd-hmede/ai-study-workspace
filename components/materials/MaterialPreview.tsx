@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
 import { puter } from "@heyputer/puter.js";
-import { renderAsync } from "docx-preview";
-import * as XLSX from "xlsx";
+
+import type { WorkBook } from "xlsx";
 
 import type { Material } from "@/types/material";
+
 import type { PptxViewer as PptxViewerType } from "@aiden0z/pptx-renderer";
 
 import { getMaterialFileCapability } from "@/lib/material-file-capabilities";
@@ -20,17 +22,22 @@ type SpreadsheetCell = string | number | boolean | null;
 
 const parseCsv = (text: string): string[][] => {
   const rows: string[][] = [];
+
   let row: string[] = [];
+
   let cell = "";
+
   let insideQuotes = false;
 
   for (let index = 0; index < text.length; index += 1) {
     const character = text[index];
+
     const nextCharacter = text[index + 1];
 
     if (character === '"') {
       if (insideQuotes && nextCharacter === '"') {
         cell += '"';
+
         index += 1;
       } else {
         insideQuotes = !insideQuotes;
@@ -41,7 +48,9 @@ const parseCsv = (text: string): string[][] => {
 
     if (character === "," && !insideQuotes) {
       row.push(cell);
+
       cell = "";
+
       continue;
     }
 
@@ -57,7 +66,9 @@ const parseCsv = (text: string): string[][] => {
       }
 
       row = [];
+
       cell = "";
+
       continue;
     }
 
@@ -78,28 +89,42 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     material.capability ??
     getMaterialFileCapability(
       material.originalFileName || material.name,
+
       material.type,
     );
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
 
   const [textContent, setTextContent] = useState<string | null>(null);
 
-  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [workbook, setWorkbook] = useState<WorkBook | null>(null);
+
+  const [spreadsheetRows, setSpreadsheetRows] = useState<SpreadsheetCell[][]>(
+    [],
+  );
+
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
 
   const [docxBlob, setDocxBlob] = useState<Blob | null>(null);
+
   const [docxError, setDocxError] = useState(false);
+
   const [docxScale, setDocxScale] = useState(1);
 
   const [pptxBuffer, setPptxBuffer] = useState<ArrayBuffer | null>(null);
+
   const [pptxError, setPptxError] = useState(false);
+
   const [pptxZoom, setPptxZoom] = useState(100);
 
   const docxContainerRef = useRef<HTMLDivElement | null>(null);
+
   const pptxContainerRef = useRef<HTMLDivElement | null>(null);
+
   const pptxViewerRef = useRef<PptxViewerType | null>(null);
 
   const zoomOut = () => {
@@ -120,6 +145,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     const nextZoom = Math.max(50, pptxZoom - 10);
 
     await viewer.setZoom(nextZoom);
+
     setPptxZoom(nextZoom);
   };
 
@@ -133,29 +159,39 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     const nextZoom = Math.min(200, pptxZoom + 10);
 
     await viewer.setZoom(nextZoom);
+
     setPptxZoom(nextZoom);
   };
 
   useEffect(() => {
     let objectUrl: string | null = null;
+
     let isActive = true;
 
     const loadPreview = async () => {
       try {
         setLoading(true);
+
         setError(null);
 
         setTextContent(null);
 
         setWorkbook(null);
+
         setActiveSheet(null);
 
+        setSpreadsheetRows([]);
+
         setDocxBlob(null);
+
         setDocxError(false);
+
         setDocxScale(1);
 
         setPptxBuffer(null);
+
         setPptxError(false);
+
         setPptxZoom(100);
 
         const file = await puter.fs.read(material.path);
@@ -192,6 +228,8 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
             return;
           }
 
+          const XLSX = await import("xlsx");
+
           const parsedWorkbook = XLSX.read(arrayBuffer, {
             type: "array",
           });
@@ -200,8 +238,29 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
             return;
           }
 
+          const firstSheetName = parsedWorkbook.SheetNames[0] ?? null;
+
           setWorkbook(parsedWorkbook);
-          setActiveSheet(parsedWorkbook.SheetNames[0] ?? null);
+
+          setActiveSheet(firstSheetName);
+
+          if (firstSheetName) {
+            const firstSheet = parsedWorkbook.Sheets[firstSheetName];
+
+            const rows = XLSX.utils.sheet_to_json<SpreadsheetCell[]>(
+              firstSheet,
+
+              {
+                header: 1,
+
+                defval: "",
+
+                raw: false,
+              },
+            );
+
+            setSpreadsheetRows(rows);
+          }
         }
 
         if (capability?.previewStrategy === "docx") {
@@ -219,6 +278,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         }
 
         objectUrl = URL.createObjectURL(typedFile);
+
         setPreviewUrl(objectUrl);
       } catch (error) {
         console.error("Material preview error:", error);
@@ -244,9 +304,13 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     };
   }, [
     material.path,
+
     material.type,
+
     material.name,
+
     material.originalFileName,
+
     capability?.previewStrategy,
   ]);
 
@@ -261,8 +325,11 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
 
         container.innerHTML = "";
 
+        const { renderAsync } = await import("docx-preview");
+
         await renderAsync(docxBlob, container, undefined, {
           className: "docx",
+
           inWrapper: true,
         });
 
@@ -272,7 +339,9 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
 
         if (wrapper) {
           wrapper.style.alignItems = "flex-start";
+
           wrapper.style.width = "fit-content";
+
           wrapper.style.minWidth = "100%";
         }
 
@@ -285,6 +354,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         }
 
         const parentWidth = container.parentElement?.clientWidth ?? 0;
+
         const pageWidth = renderedPage.offsetWidth;
 
         if (parentWidth > 0 && pageWidth > 0) {
@@ -328,23 +398,32 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
 
         const viewer = await PptxViewer.open(pptxBuffer, container, {
           fitMode: "contain",
+
           zoomPercent: 100,
+
           zipLimits: RECOMMENDED_ZIP_LIMITS,
+
           lazySlides: true,
+
           lazyMedia: true,
+
           listOptions: {
             windowed: true,
+
             initialSlides: 4,
+
             batchSize: 4,
           },
         });
 
         if (cancelled) {
           viewer.destroy();
+
           return;
         }
 
         pptxViewerRef.current = viewer;
+
         setPptxZoom(viewer.zoomPercent);
       } catch {
         if (!cancelled) {
@@ -360,14 +439,20 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
 
       if (pptxViewerRef.current) {
         pptxViewerRef.current.destroy();
+
         pptxViewerRef.current = null;
       }
     };
   }, [pptxBuffer]);
 
   if (loading) {
+    const loadingHeight =
+      capability?.previewStrategy === "pdf"
+        ? "h-[520px] xl:h-[650px]"
+        : "min-h-96";
+
     return (
-      <div className="flex min-h-96 items-center justify-center">
+      <div className={`flex items-center justify-center ${loadingHeight}`}>
         <p className="text-sm text-gray-500">Loading preview...</p>
       </div>
     );
@@ -399,7 +484,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
 
   if (capability?.previewStrategy === "image") {
     return (
-      <div className="flex min-h-96 items-center justify-center">
+      <div className="flex h-[520px] items-center justify-center overflow-auto rounded-xl border border-slate-200 bg-white xl:h-[650px]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={previewUrl}
@@ -414,7 +499,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     return (
       <pre
         dir="auto"
-        className="max-h-[600px] overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm leading-6 text-gray-700"
+        className="h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-gray-50 p-4 text-sm leading-6 text-gray-700 xl:h-[650px]"
       >
         {textContent}
       </pre>
@@ -425,7 +510,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     const fileLabel = getMaterialFileLabel(material);
 
     return (
-      <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
+      <div className="flex h-[520px] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 xl:h-[650px]">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
           <span className="text-xs font-medium text-slate-400">
             {material.name}
@@ -435,10 +520,9 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
             {fileLabel}
           </span>
         </div>
-
         <pre
           dir="ltr"
-          className="max-h-[600px] overflow-auto p-4 text-left font-mono text-sm leading-6 text-slate-100"
+          className="min-h-0 flex-1 overflow-auto p-4 text-left font-mono text-sm leading-6 text-slate-100"
         >
           <code>{textContent}</code>
         </pre>
@@ -460,10 +544,11 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     }
 
     const headers = rows[0];
+
     const dataRows = rows.slice(1);
 
     return (
-      <div className="max-h-[600px] overflow-auto rounded-xl border border-slate-200 bg-white">
+      <div className="h-[520px] overflow-auto rounded-xl border border-slate-200 bg-white xl:h-[650px]">
         <table className="min-w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100">
             <tr>
@@ -502,21 +587,16 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     workbook &&
     activeSheet
   ) {
-    const sheet = workbook.Sheets[activeSheet];
-
-    const rows = XLSX.utils.sheet_to_json<SpreadsheetCell[]>(sheet, {
-      header: 1,
-      defval: "",
-      raw: false,
-    });
+    const rows = spreadsheetRows;
 
     const columnCount = rows.reduce(
       (largest, row) => Math.max(largest, row.length),
+
       0,
     );
 
     return (
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="flex h-[520px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white xl:h-[650px]">
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
           <p className="truncate text-xs font-medium text-slate-500">
             {material.name}
@@ -526,7 +606,6 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
             {rows.length} rows · {columnCount} columns
           </p>
         </div>
-
         {workbook.SheetNames.length > 1 && (
           <div className="flex overflow-x-auto border-b border-slate-200 bg-white">
             {workbook.SheetNames.map((sheetName) => {
@@ -536,7 +615,28 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
                 <button
                   key={sheetName}
                   type="button"
-                  onClick={() => setActiveSheet(sheetName)}
+                  onClick={async () => {
+                    const XLSX = await import("xlsx");
+
+                    const sheet = workbook.Sheets[sheetName];
+
+                    if (!sheet) {
+                      return;
+                    }
+
+                    const rows = XLSX.utils.sheet_to_json<SpreadsheetCell[]>(
+                      sheet,
+                      {
+                        header: 1,
+                        defval: "",
+                        raw: false,
+                      },
+                    );
+
+                    setActiveSheet(sheetName);
+
+                    setSpreadsheetRows(rows);
+                  }}
                   className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition ${
                     isActive
                       ? "border-blue-600 text-blue-600"
@@ -549,7 +649,6 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
             })}
           </div>
         )}
-
         {rows.length === 0 || columnCount === 0 ? (
           <div className="flex min-h-96 items-center justify-center">
             <p className="text-sm text-slate-500">
@@ -557,7 +656,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
             </p>
           </div>
         ) : (
-          <div className="max-h-[600px] overflow-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             <table className="min-w-full border-collapse text-sm">
               <tbody>
                 {rows.map((row, rowIndex) => (
@@ -596,7 +695,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     }
 
     return (
-      <div className="rounded-lg bg-gray-100">
+      <div className="flex h-[520px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-gray-100 xl:h-[650px]">
         <div className="flex items-center justify-end gap-2 border-b border-gray-200 bg-white px-3 py-2">
           <button
             type="button"
@@ -618,8 +717,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
             +
           </button>
         </div>
-
-        <div className="max-h-[600px] overflow-auto p-4">
+        <div className="min-h-0 flex-1 overflow-auto p-4">
           <div
             style={{
               zoom: docxScale,
@@ -642,7 +740,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     }
 
     return (
-      <div className="rounded-lg bg-gray-100">
+      <div className="flex h-[520px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-gray-100 xl:h-[650px]">
         <div className="flex items-center justify-end gap-2 border-b border-gray-200 bg-white px-3 py-2">
           <button
             type="button"
@@ -666,8 +764,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
             +
           </button>
         </div>
-
-        <div className="max-h-[600px] overflow-auto p-4">
+        <div className="min-h-0 flex-1 overflow-auto p-4">
           <div ref={pptxContainerRef} />
         </div>
       </div>
