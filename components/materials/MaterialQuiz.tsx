@@ -84,7 +84,6 @@ export default function MaterialQuiz({
     const generateInitialQuiz = async () => {
       try {
         const generatedQuiz = await generateMaterialQuiz(material);
-
         if (isActive) {
           setQuiz(generatedQuiz);
           setCurrentQuestionIndex(0);
@@ -289,7 +288,7 @@ export default function MaterialQuiz({
               className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-200 hover:bg-blue-50/30"
             >
               <div className="min-w-0">
-                <p className="truncate font-medium text-slate-900">
+                <p className="break-words font-medium text-slate-900">
                   {attempt.quiz.title}
                 </p>
 

@@ -1,12 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AppHeader from "@/components/layout/AppHeader";
 import AppSidebar from "@/components/layout/AppSidebar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sidebarOpen) {
+      return;
+    }
+
+    const firstFocusableElement =
+      sidebarRef.current?.querySelector<HTMLElement>(
+        "a, button:not([disabled])",
+      );
+
+    firstFocusableElement?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sidebarOpen]);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -25,7 +51,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             className="absolute inset-0 bg-slate-950/40"
           />
 
-          <div className="relative h-full w-60">
+          <div ref={sidebarRef} className="relative h-full w-60">
             <AppSidebar mobile onClose={() => setSidebarOpen(false)} />
           </div>
         </div>

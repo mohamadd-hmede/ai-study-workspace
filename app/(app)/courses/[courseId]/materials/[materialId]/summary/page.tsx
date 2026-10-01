@@ -149,7 +149,7 @@ export default function MaterialSummaryPage() {
             </div>
 
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+              <h1 className="break-words text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
                 {material.name}
               </h1>
 

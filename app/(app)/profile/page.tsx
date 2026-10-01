@@ -350,11 +350,10 @@ export default function ProfilePage() {
 
         <section className="mt-6 rounded-xl border border-slate-200 bg-white">
           <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="flex min-w-0 items-center gap-4">
+            <div className="flex min-w-0 flex-col items-start gap-4 min-[360px]:flex-row min-[360px]:items-center">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xl font-bold text-blue-700">
                 {initials}
               </div>
-
               <div className="min-w-0 flex-1">
                 {editingName ? (
                   <div>
@@ -495,7 +494,7 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Current Plan
               </p>
 
@@ -537,7 +536,7 @@ export default function ProfilePage() {
                 <HardDrive className="h-5 w-5" strokeWidth={2} />
               </div>
 
-              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Storage
               </p>
 
@@ -600,7 +599,7 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Resources
               </p>
 

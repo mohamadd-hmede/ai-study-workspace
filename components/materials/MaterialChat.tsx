@@ -311,7 +311,7 @@ export default function MaterialChat({ material }: MaterialChatProps) {
                 Ask StudyFlow AI
               </p>
 
-              <p className="mt-1 text-sm leading-6 text-slate-400">
+              <p className="mt-1 text-sm leading-6 text-slate-600">
                 Ask about this material, request a clearer explanation, or ask
                 any other question.
               </p>
@@ -615,9 +615,8 @@ export default function MaterialChat({ material }: MaterialChatProps) {
           </button>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
           <span>Enter to send · Shift + Enter for new line</span>
-
           <span>AI can make mistakes. Check important information.</span>
         </div>
       </div>
