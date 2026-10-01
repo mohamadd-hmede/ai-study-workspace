@@ -165,7 +165,10 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         }
 
         const typedFile = new Blob([file], {
-          type: material.type || "application/octet-stream",
+          type:
+            capability?.previewStrategy === "pdf"
+              ? "application/pdf"
+              : material.type || "application/octet-stream",
         });
 
         if (

@@ -24,16 +24,10 @@ const normalizeMaterial = (material: Material): Material => {
     material.capability ||
     getMaterialFileCapability(originalFileName, material.type);
 
-  if (!capability) {
-    throw new Error(
-      `StudyFlow could not determine the capabilities of "${material.name}".`,
-    );
-  }
-
   return {
     ...material,
     originalFileName,
-    capability,
+    ...(capability ? { capability } : {}),
   };
 };
 
@@ -130,14 +124,7 @@ export const getMaterialsByCourse = async (
   });
 
   return records
-    .flatMap((record) => {
-      try {
-        return [normalizeMaterial(record.value as Material)];
-      } catch (error) {
-        console.warn("Skipping unsupported stored material:", error);
-        return [];
-      }
-    })
+    .map((record) => normalizeMaterial(record.value as Material))
     .sort((a, b) => a.createdAt - b.createdAt);
 };
 

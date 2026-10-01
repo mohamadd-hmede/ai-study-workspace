@@ -454,6 +454,8 @@ export default function MaterialChat({ material }: MaterialChatProps) {
                               </a>
                             ),
 
+                            pre: ({ children }) => <>{children}</>,
+
                             code: ({ children, className }) => {
                               const isCodeBlock = Boolean(
                                 className?.startsWith("language-"),

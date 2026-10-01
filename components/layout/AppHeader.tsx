@@ -86,10 +86,6 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   }, []);
 
   const loadSearchData = async () => {
-    if (searchData.courses.length > 0 || searchData.materials.length > 0) {
-      return;
-    }
-
     setSearchLoading(true);
 
     try {

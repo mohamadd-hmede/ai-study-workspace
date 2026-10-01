@@ -9,5 +9,5 @@ export type Material = {
   type: string;
   size: number;
   createdAt: number;
-  capability: MaterialFileCapability;
+  capability?: MaterialFileCapability;
 };

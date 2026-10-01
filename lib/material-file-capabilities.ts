@@ -31,11 +31,7 @@ const PPTX_MIME_TYPE =
 const XLSX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-const CSV_MIME_TYPES = new Set([
-  "text/csv",
-  "application/csv",
-  "application/vnd.ms-excel",
-]);
+const CSV_MIME_TYPES = new Set(["text/csv", "application/csv"]);
 
 const TEXT_EXTENSIONS = new Set([
   "txt",
@@ -204,7 +200,9 @@ export const detectMaterialFileCapability = async (
   try {
     const text = new TextDecoder("utf-8", {
       fatal: true,
-    }).decode(bytes);
+    }).decode(bytes, {
+      stream: sampleSize < file.size,
+    });
 
     if (!text.trim()) {
       return null;
