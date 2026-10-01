@@ -129,7 +129,7 @@ export default function MaterialPage() {
             </div>
 
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+              <h1 className="break-words text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
                 {material.name}
               </h1>
 
@@ -174,7 +174,7 @@ export default function MaterialPage() {
                   Generate Summary
                 </h2>
 
-                <p className="mt-0.5 text-sm text-slate-500">
+                <p className="mt-0.5 text-sm text-slate-600">
                   Get a concise summary of this material
                 </p>
               </div>
@@ -191,7 +191,7 @@ export default function MaterialPage() {
               <div>
                 <h2 className="font-semibold text-slate-900">Quiz</h2>
 
-                <p className="mt-0.5 text-sm text-slate-500">
+                <p className="mt-0.5 text-sm text-slate-600">
                   Test your knowledge of this material
                 </p>
               </div>
@@ -200,7 +200,7 @@ export default function MaterialPage() {
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Link
                 href={`/courses/${material.courseId}/materials/${material.id}/quiz?generate=true`}
-                className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800"
               >
                 Generate Quiz
               </Link>

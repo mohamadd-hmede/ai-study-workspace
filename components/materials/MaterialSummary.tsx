@@ -388,7 +388,7 @@ export default function MaterialSummary({
           <div className="p-5 sm:p-6">
             <div
               ref={summaryContainerRef}
-              className="w-full rounded-xl border border-slate-200 bg-white px-5 py-6 text-slate-700 sm:px-7"
+              className="min-w-0 w-full overflow-x-auto rounded-xl border border-slate-200 bg-white px-5 py-6 text-slate-700 sm:px-7"
             >
               <ReactMarkdown
                 remarkPlugins={[remarkMath, remarkGfm]}
@@ -410,7 +410,7 @@ export default function MaterialSummary({
                     </h3>
                   ),
                   p: ({ children }) => (
-                    <p className="mb-4 text-sm leading-7 text-slate-600">
+                    <p className="mb-4 break-words text-sm leading-7 text-slate-600">
                       {children}
                     </p>
                   ),
@@ -425,12 +425,21 @@ export default function MaterialSummary({
                     </ol>
                   ),
                   li: ({ children }) => (
-                    <li className="leading-7">{children}</li>
+                    <li className="break-words leading-7">{children}</li>
                   ),
                   strong: ({ children }) => (
                     <strong className="font-semibold text-slate-900">
                       {children}
                     </strong>
+                  ),
+                  pre: ({ children }) => (
+                    <pre className="mb-4 max-w-full overflow-x-auto rounded-lg bg-slate-50 p-4 text-sm leading-6">
+                      {children}
+                    </pre>
+                  ),
+
+                  code: ({ children }) => (
+                    <code className="font-mono text-sm">{children}</code>
                   ),
                   table: ({ children }) => (
                     <div className="my-5 overflow-x-auto">

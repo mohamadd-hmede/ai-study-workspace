@@ -272,6 +272,7 @@ export default function CourseDetailsPage() {
               </div>
 
               <select
+                aria-label="Sort materials"
                 value={materialSort}
                 onChange={(event) =>
                   setMaterialSort(

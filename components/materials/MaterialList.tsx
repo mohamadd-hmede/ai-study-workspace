@@ -194,12 +194,12 @@ export default function MaterialList({
               </div>
 
               <div className="mt-5 min-w-0">
-                <h3
+                <h2
                   title={material.name}
                   className="truncate text-base font-semibold text-slate-950"
                 >
                   {material.name}
-                </h3>
+                </h2>
 
                 <p className="mt-1 text-sm text-slate-500">
                   {getMaterialFileLabel(material)}{" "}

@@ -209,14 +209,13 @@ export default function DashboardPage() {
         </section>
 
         <section className="mt-7 rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-950">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="whitespace-nowrap text-xl font-semibold text-slate-950">
               Recent Courses
             </h2>
-
             <Link
               href="/courses"
-              className="text-sm font-medium text-blue-600 transition hover:text-blue-700"
+              className="shrink-0 whitespace-nowrap text-sm font-medium text-blue-600 transition hover:text-blue-700"
             >
               View All
             </Link>
