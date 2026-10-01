@@ -65,10 +65,33 @@ const parseQuizResponse = (response: string): GeneratedQuiz | null => {
 export const generateMaterialQuiz = async (
   material: Material,
 ): Promise<GeneratedQuiz> => {
+  const quizFocuses = [
+    "Focus on definitions, terminology, and core concepts found in the material.",
+    "Focus on relationships, differences, and connections between concepts found in the material.",
+    "Focus on important details and specific information found in different parts of the material.",
+    "Focus on understanding and reasoning using only information explicitly supported by the material.",
+    "Create a balanced quiz covering different sections and concepts from across the material.",
+  ];
+
+  const quizFocus = quizFocuses[Math.floor(Math.random() * quizFocuses.length)];
   const prompt = `
 You are an AI study assistant.
 
 Create a multiple-choice quiz using only the provided study material.
+
+Quiz focus for this generation:
+${quizFocus}
+
+The study material is the ONLY source of truth.
+Every question, correct answer, incorrect option, and explanation must be supported by the study material.
+If something is not supported by the material, do not include it.
+
+Quality and importance rules:
+- Always prioritize important, study-worthy concepts from the material.
+- Do not use trivial, incidental, decorative, or low-value information just to make the quiz different.
+- It is acceptable to test an important concept again in a future quiz if the alternative would be an unimportant detail.
+- When revisiting an important concept, test a different meaningful aspect or understanding of it when possible.
+- Quiz variety must never come at the cost of relevance or educational value.
 
 Return ONLY valid JSON.
 Do not include Markdown.
@@ -100,9 +123,12 @@ Rules:
 - Each question must have exactly 4 options
 - Only one option must be correct
 - correctAnswer must be the zero-based index of the correct option: 0, 1, 2, or 3
-- Questions should test important concepts from the material
-- Include a mix of straightforward and understanding-based questions
-- Avoid duplicate questions
+- Select a varied set of concepts from the material
+- Do not always choose only the most obvious or introductory concepts
+- Use different parts of the material when enough content is available
+- Include a mix of straightforward, understanding, comparison, and reasoning questions
+- Vary the wording and angle of questions between quiz generations
+- Avoid duplicate or near-duplicate questions within this quiz
 - Keep questions and options clear and concise
 - Give a short explanation for every correct answer
 - Use only information found in the study material
@@ -110,6 +136,7 @@ Rules:
 - Make sure the final response is syntactically valid JSON
 - Do not use trailing commas
 - All property names and string values must use double quotes
+
 `;
 
   for (let attempt = 1; attempt <= 2; attempt++) {
