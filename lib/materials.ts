@@ -1,5 +1,11 @@
 import { puter } from "@heyputer/puter.js";
+
 import type { Material } from "@/types/material";
+
+import {
+  detectMaterialFileCapability,
+  getMaterialFileCapability,
+} from "@/lib/material-file-capabilities";
 
 const MATERIAL_PREFIX = "material:";
 
@@ -7,11 +13,37 @@ const getMaterialKey = (courseId: string, id: string) => {
   return `${MATERIAL_PREFIX}${courseId}:${id}`;
 };
 
-export const uploadMaterialFile = async (courseId: string, file: File) => {
+const normalizeMaterial = (material: Material): Material => {
+  if (material.capability && material.originalFileName) {
+    return material;
+  }
+
+  const originalFileName = material.originalFileName || material.name;
+
+  const capability =
+    material.capability ||
+    getMaterialFileCapability(originalFileName, material.type);
+
+  return {
+    ...material,
+    originalFileName,
+    ...(capability ? { capability } : {}),
+  };
+};
+
+export const uploadMaterialFile = async (
+  courseId: string,
+  file: File,
+  onProgress?: (progress: number) => void,
+) => {
   const path = `study-materials/${courseId}/${crypto.randomUUID()}-${file.name}`;
 
   const uploadedFile = await puter.fs.write(path, file, {
     createMissingParents: true,
+
+    progress: (_operationId, progress) => {
+      onProgress?.(progress);
+    },
   });
 
   return uploadedFile;
@@ -20,17 +52,29 @@ export const uploadMaterialFile = async (courseId: string, file: File) => {
 export const createMaterial = async (
   courseId: string,
   file: File,
+  name?: string,
+  onProgress?: (progress: number) => void,
 ): Promise<Material> => {
-  const uploadedFile = await uploadMaterialFile(courseId, file);
+  const capability = await detectMaterialFileCapability(file);
+
+  if (!capability) {
+    throw new Error(
+      "This file type is not supported because StudyFlow cannot safely read and preview it.",
+    );
+  }
+
+  const uploadedFile = await uploadMaterialFile(courseId, file, onProgress);
 
   const material: Material = {
     id: crypto.randomUUID(),
     courseId,
-    name: file.name,
+    name: name?.trim() || file.name,
+    originalFileName: file.name,
     path: uploadedFile.path,
     type: file.type,
     size: file.size,
     createdAt: Date.now(),
+    capability,
   };
 
   try {
@@ -46,6 +90,31 @@ export const createMaterial = async (
   }
 };
 
+export const renameMaterial = async (
+  material: Material,
+  newName: string,
+): Promise<Material> => {
+  const trimmedName = newName.trim();
+
+  if (!trimmedName) {
+    throw new Error("Material name cannot be empty.");
+  }
+
+  const normalizedMaterial = normalizeMaterial(material);
+
+  const updatedMaterial: Material = {
+    ...normalizedMaterial,
+    name: trimmedName,
+  };
+
+  await puter.kv.set(
+    getMaterialKey(updatedMaterial.courseId, updatedMaterial.id),
+    updatedMaterial,
+  );
+
+  return updatedMaterial;
+};
+
 export const getMaterialsByCourse = async (
   courseId: string,
 ): Promise<Material[]> => {
@@ -55,7 +124,7 @@ export const getMaterialsByCourse = async (
   });
 
   return records
-    .map((record) => record.value as Material)
+    .map((record) => normalizeMaterial(record.value as Material))
     .sort((a, b) => a.createdAt - b.createdAt);
 };
 
@@ -69,7 +138,7 @@ export const getMaterialById = async (
     return null;
   }
 
-  return material as Material;
+  return normalizeMaterial(material as Material);
 };
 
 export const deleteMaterial = async (material: Material): Promise<boolean> => {
@@ -83,14 +152,16 @@ export const deleteMaterial = async (material: Material): Promise<boolean> => {
 
   const storedMaterial = existingMaterial as Material;
 
-  await puter.kv.del(key);
-
   try {
     await puter.fs.delete(storedMaterial.path);
   } catch (error) {
-    await puter.kv.set(key, storedMaterial);
-    throw error;
+    console.warn(
+      "Material file could not be deleted. It may already be missing:",
+      error,
+    );
   }
+
+  await puter.kv.del(key);
 
   return true;
 };

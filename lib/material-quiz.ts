@@ -37,6 +37,31 @@ const isValidQuiz = (value: unknown): value is GeneratedQuiz => {
   });
 };
 
+const parseQuizResponse = (response: string): GeneratedQuiz | null => {
+  const cleanedResponse = response
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  const firstBrace = cleanedResponse.indexOf("{");
+  const lastBrace = cleanedResponse.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+    return null;
+  }
+
+  const jsonText = cleanedResponse.slice(firstBrace, lastBrace + 1);
+
+  try {
+    const quiz: unknown = JSON.parse(jsonText);
+
+    return isValidQuiz(quiz) ? quiz : null;
+  } catch {
+    return null;
+  }
+};
+
 export const generateMaterialQuiz = async (
   material: Material,
 ): Promise<GeneratedQuiz> => {
@@ -71,7 +96,7 @@ Use exactly this structure:
 }
 
 Rules:
-- Generate 10 questions
+- Generate exactly 10 questions
 - Each question must have exactly 4 options
 - Only one option must be correct
 - correctAnswer must be the zero-based index of the correct option: 0, 1, 2, or 3
@@ -82,15 +107,21 @@ Rules:
 - Give a short explanation for every correct answer
 - Use only information found in the study material
 - Do not invent information
+- Make sure the final response is syntactically valid JSON
+- Do not use trailing commas
+- All property names and string values must use double quotes
 `;
 
-  const response = await processMaterial(material, prompt);
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await processMaterial(material, prompt);
+    const quiz = parseQuizResponse(response);
 
-  const quiz: unknown = JSON.parse(response);
-
-  if (!isValidQuiz(quiz)) {
-    throw new Error("AI returned an invalid quiz.");
+    if (quiz) {
+      return quiz;
+    }
   }
 
-  return quiz;
+  throw new Error(
+    "AI returned an invalid quiz after multiple generation attempts.",
+  );
 };
