@@ -45,7 +45,13 @@ export const renderMaterialPages = async (
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch("/api/materials/render", {
+  const rendererUrl = process.env.NEXT_PUBLIC_RENDERER_URL;
+
+  if (!rendererUrl) {
+    throw new Error("Document renderer is not configured.");
+  }
+
+  const response = await fetch(`${rendererUrl}/render`, {
     method: "POST",
     body: formData,
   });
