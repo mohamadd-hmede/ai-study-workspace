@@ -5,11 +5,30 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import cors from "cors";
 
 const execFileAsync = promisify(execFile);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.STUDYFLOW_ORIGIN,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origin not allowed by CORS"));
+    },
+  }),
+);
 
 const upload = multer({
   storage: multer.memoryStorage(),
