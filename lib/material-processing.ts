@@ -29,7 +29,7 @@ const limitExtractedText = (text: string): string => {
   return `${trimmedText.slice(
     0,
     MAX_EXTRACTED_TEXT_LENGTH,
-  )}\n\n[StudyFlow truncated this material because it was too large to send in one AI request.]`;
+  )}\n\n[Learnadio truncated this material because it was too large to send in one AI request.]`;
 };
 
 const extractTextFile = async (material: Material): Promise<string> => {
@@ -281,7 +281,7 @@ ${extractedText || "[No readable text was extracted.]"}
     );
 
     if (!extractedText) {
-      throw new Error("StudyFlow could not process this Office material.");
+      throw new Error("Learnadio could not process this Office material.");
     }
 
     return await processExtractedText(extractedText, prompt);
@@ -301,7 +301,7 @@ export const processMaterial = async (
 
   if (!capability) {
     throw new Error(
-      "StudyFlow does not know how to process this material type.",
+      "Learnadio does not know how to process this material type.",
     );
   }
 
@@ -353,7 +353,7 @@ export const processMaterial = async (
 
     default:
       throw new Error(
-        "StudyFlow does not support AI processing for this material type.",
+        "Learnadio does not support AI processing for this material type.",
       );
   }
 };

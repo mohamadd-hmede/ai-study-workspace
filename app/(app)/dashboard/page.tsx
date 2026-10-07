@@ -163,7 +163,7 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <h2 className="mt-2 text-2xl font-medium text-slate-900">
-            Welcome back, {displayName || "StudyFlow User"}!
+            Welcome back, {displayName || "Learnadio User"}!
           </h2>
 
           <p className="mt-1 text-base text-slate-500">

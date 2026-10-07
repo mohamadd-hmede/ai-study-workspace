@@ -10,7 +10,11 @@ import {
   signIn,
 } from "@/lib/puter";
 
-export default function SignInCard() {
+type SignInCardProps = {
+  mobile?: boolean;
+};
+
+export default function SignInCard({ mobile = false }: SignInCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -116,7 +120,7 @@ export default function SignInCard() {
       <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900">
-            Welcome to StudyFlow
+            Welcome to Learnadio
           </h2>
 
           <p className="mt-2 text-sm text-gray-600">What should we call you?</p>
@@ -158,24 +162,54 @@ export default function SignInCard() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
+    <div
+      className={
+        mobile
+          ? "w-full"
+          : "w-full rounded-2xl border border-gray-200 bg-white p-8 shadow-sm"
+      }
+    >
+      <div className={mobile ? "text-left" : "text-center"}>
+        <h2
+          className={
+            mobile
+              ? "text-2xl font-bold text-white"
+              : "text-2xl font-bold text-gray-900"
+          }
+        >
+          Welcome to Learnadio
+        </h2>
 
-        <p className="mt-2 text-sm text-gray-600">
-          Sign in to continue to your study workspace.
+        <p
+          className={
+            mobile ? "mt-2 text-sm text-gray-400" : "mt-2 text-sm text-gray-600"
+          }
+        >
+          Continue to your workspace.
         </p>
       </div>
 
       {error && (
-        <p className="mt-5 text-center text-sm text-red-600">{error}</p>
+        <p
+          className={
+            mobile
+              ? "mt-5 text-sm text-red-400"
+              : "mt-5 text-center text-sm text-red-600"
+          }
+        >
+          {error}
+        </p>
       )}
 
       <button
         type="button"
         onClick={handleSignIn}
         disabled={isSigningIn}
-        className="mt-8 w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+        className={
+          mobile
+            ? "mt-6 w-full rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            : "mt-8 w-full rounded-xl bg-gray-900 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+        }
       >
         {isSigningIn ? "Signing in..." : "Sign in"}
       </button>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, House, LogOut, UserRound, X } from "lucide-react";
@@ -55,17 +56,27 @@ export default function AppSidebar({
   };
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <aside
+      className={`flex h-full shrink-0 flex-col border-r border-slate-200 bg-white ${
+        mobile ? "w-72" : "w-60"
+      }`}
+    >
       <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200 px-7">
         <Link
           href="/dashboard"
           onClick={handleNavigation}
           className="flex items-center gap-3"
         >
-          <BookOpen className="h-8 w-8 text-blue-600" strokeWidth={2.4} />
+          <Image
+            src="/learnadio-logo.png"
+            alt=""
+            width={36}
+            height={36}
+            className="h-9 w-9 object-contain"
+          />
 
           <span className="text-2xl font-bold tracking-tight text-slate-950">
-            StudyFlow
+            Learnadio
           </span>
         </Link>
 
@@ -80,7 +91,6 @@ export default function AppSidebar({
           </button>
         )}
       </div>
-
       <nav className="flex flex-1 flex-col gap-2 py-8">
         {navigationItems.map((item) => {
           const Icon = item.icon;
@@ -108,7 +118,6 @@ export default function AppSidebar({
           );
         })}
       </nav>
-
       <div className="px-8 pb-9">
         <button
           type="button"

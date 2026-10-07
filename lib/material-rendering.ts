@@ -59,11 +59,11 @@ export const renderMaterialPages = async (
   const data = (await response.json()) as RenderResponse;
 
   if (!response.ok) {
-    throw new Error(data.error || "StudyFlow could not render this material.");
+    throw new Error(data.error || "Learnadio could not render this material.");
   }
 
   if (!data.pages || data.pages.length === 0) {
-    throw new Error("StudyFlow could not produce any rendered pages.");
+    throw new Error("Learnadio could not produce any rendered pages.");
   }
 
   return data.pages.map((page) => ({

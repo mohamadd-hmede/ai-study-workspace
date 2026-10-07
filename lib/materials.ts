@@ -59,7 +59,7 @@ export const createMaterial = async (
 
   if (!capability) {
     throw new Error(
-      "This file type is not supported because StudyFlow cannot safely read and preview it.",
+      "This file type is not supported because Learnadio cannot safely read and preview it.",
     );
   }
 
