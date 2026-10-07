@@ -14,7 +14,7 @@ import { useState } from "react";
 
 type CourseCardProps = {
   course: Course;
-  materialCount: number;
+  materialCount: number | null;
   index: number;
   onEdit: (course: Course) => void;
   onDelete: (course: Course) => void;
@@ -113,7 +113,9 @@ export default function CourseCard({
       <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
         <BookOpen className="h-4 w-4" strokeWidth={2} />
         <span>
-          {materialCount} {materialCount === 1 ? "material" : "materials"}
+          {materialCount === null
+            ? "Materials unavailable"
+            : `${materialCount} ${materialCount === 1 ? "material" : "materials"}`}{" "}
         </span>
       </div>
 

@@ -9,12 +9,19 @@ import {
 } from "react";
 import { getCurrentUser, getDisplayName } from "@/lib/puter";
 
-type User = Awaited<ReturnType<typeof getCurrentUser>>;
+type User = Awaited<ReturnType<typeof getCurrentUser>> | null;
+
+export type AuthStatus =
+  | "loading"
+  | "authenticated"
+  | "unauthenticated"
+  | "error";
 
 type AuthContextType = {
   user: User;
   displayName: string | null;
   loading: boolean;
+  authStatus: AuthStatus;
   refreshUser: () => Promise<void>;
   refreshDisplayName: () => Promise<void>;
 };
@@ -24,16 +31,45 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(null);
   const [displayName, setDisplayNameState] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
 
   const refreshUser = async () => {
-    const currentUser = await getCurrentUser();
-    setUser(currentUser);
+    try {
+      const currentUser = await getCurrentUser();
+
+      setUser(currentUser);
+      setAuthStatus(currentUser ? "authenticated" : "unauthenticated");
+    } catch (error) {
+      const status =
+        error && typeof error === "object" && "status" in error
+          ? error.status
+          : undefined;
+
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? error.message
+          : undefined;
+
+      if (status === 401 && message === "Unauthorized") {
+        setUser(null);
+        setAuthStatus("unauthenticated");
+        return;
+      }
+
+      console.error("Failed to refresh authentication state:", error);
+      setAuthStatus("error");
+      throw error;
+    }
   };
 
   const refreshDisplayName = async () => {
-    const currentDisplayName = await getDisplayName();
-    setDisplayNameState(currentDisplayName);
+    try {
+      const currentDisplayName = await getDisplayName();
+      setDisplayNameState(currentDisplayName);
+    } catch (error) {
+      console.error("Failed to refresh display name:", error);
+      throw error;
+    }
   };
 
   useEffect(() => {
@@ -41,25 +77,48 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const currentUser = await getCurrentUser();
 
-        let currentDisplayName: string | null = null;
+        setUser(currentUser);
 
-        if (currentUser) {
-          currentDisplayName = await getDisplayName();
+        if (!currentUser) {
+          setAuthStatus("unauthenticated");
+          return;
         }
 
-        setUser(currentUser);
-        setDisplayNameState(currentDisplayName);
+        setAuthStatus("authenticated");
+
+        try {
+          const currentDisplayName = await getDisplayName();
+          setDisplayNameState(currentDisplayName);
+        } catch (error) {
+          console.error("Failed to load display name:", error);
+          setDisplayNameState(null);
+        }
       } catch (error) {
+        const status =
+          error && typeof error === "object" && "status" in error
+            ? error.status
+            : undefined;
+
+        const message =
+          error && typeof error === "object" && "message" in error
+            ? error.message
+            : undefined;
+
+        if (status === 401 && message === "Unauthorized") {
+          setUser(null);
+          setAuthStatus("unauthenticated");
+          return;
+        }
+
         console.error("Failed to load authentication state:", error);
-        setUser(null);
-        setDisplayNameState(null);
-      } finally {
-        setLoading(false);
+        setAuthStatus("error");
       }
     };
 
     void loadAuth();
   }, []);
+
+  const loading = authStatus === "loading";
 
   return (
     <AuthContext.Provider
@@ -67,6 +126,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         user,
         displayName,
         loading,
+        authStatus,
         refreshUser,
         refreshDisplayName,
       }}

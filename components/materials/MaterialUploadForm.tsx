@@ -1,5 +1,6 @@
 "use client";
 
+import { classifyPuterError } from "@/lib/puter-errors";
 import { FormEvent, useState } from "react";
 import { createMaterial } from "@/lib/materials";
 import type { Material } from "@/types/material";
@@ -82,8 +83,43 @@ export default function MaterialUploadForm({
       setMaterialName("");
       form.reset();
       onClose();
-    } catch (error) {
-      console.error("Material upload error:", error);
+    } catch (uploadError) {
+      console.error("Material upload error:", uploadError);
+
+      const classifiedError = classifyPuterError(uploadError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setError(
+          "Your Puter account has no usage remaining. The material could not be uploaded.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "storage_limit") {
+        setError(
+          "Your Puter storage limit has been reached. Free some storage and try again.",
+        );
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setError(
+          "The material could not be uploaded right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "auth_required") {
+        setError(
+          "Your Puter session is no longer available. Please sign in again.",
+        );
+        return;
+      }
+
       setError("Failed to upload material. Please try again.");
     } finally {
       setIsUploading(false);

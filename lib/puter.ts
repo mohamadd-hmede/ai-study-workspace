@@ -9,11 +9,7 @@ export const signOut = () => {
 };
 
 export const getCurrentUser = async () => {
-  try {
-    return await puter.auth.getUser();
-  } catch {
-    return null;
-  }
+  return await puter.auth.getUser();
 };
 
 export const requestPlanUpgrade = async () => {

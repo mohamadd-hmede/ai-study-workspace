@@ -22,6 +22,7 @@ import {
   requestPlanUpgrade,
   setDisplayName,
 } from "@/lib/puter";
+import { classifyPuterError } from "@/lib/puter-errors";
 
 type AccountUsage = {
   used: number;
@@ -91,7 +92,7 @@ const getPercentage = (used: number, total: number) => {
 export default function ProfilePage() {
   const router = useRouter();
 
-  const { user, displayName, loading, refreshUser, refreshDisplayName } =
+  const { user, displayName, authStatus, refreshUser, refreshDisplayName } =
     useAuth();
 
   const [usage, setUsage] = useState<AccountUsage | null>(null);
@@ -112,10 +113,10 @@ export default function ProfilePage() {
   const [nameError, setNameError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (authStatus === "unauthenticated") {
       router.replace("/sign-in");
     }
-  }, [loading, user, router]);
+  }, [authStatus, router]);
 
   const loadUsage = useCallback(async () => {
     try {
@@ -264,12 +265,47 @@ export default function ProfilePage() {
       setNameError(null);
 
       await setDisplayName(trimmedName);
-      await refreshDisplayName();
+
+      try {
+        await refreshDisplayName();
+      } catch (refreshError) {
+        console.error(
+          "Failed to refresh display name after update:",
+          refreshError,
+        );
+      }
 
       setEditingName(false);
       setEditedName("");
-    } catch (error) {
-      console.error("Failed to update display name:", error);
+    } catch (saveError) {
+      console.error("Failed to update display name:", saveError);
+
+      const classifiedError = classifyPuterError(saveError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setNameError(
+          "Your Puter account has no usage remaining. Your name could not be updated.",
+        );
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setNameError(
+          "Your name could not be updated right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "auth_required") {
+        setNameError(
+          "Your Puter session is no longer available. Please sign in again.",
+        );
+        return;
+      }
 
       setNameError("Your name could not be updated. Please try again.");
     } finally {
@@ -293,10 +329,18 @@ export default function ProfilePage() {
     );
   };
 
-  if (loading) {
+  if (authStatus === "error" && !user) {
     return (
-      <div className="flex min-h-[calc(100vh-72px)] items-center justify-center">
-        <p className="text-sm text-slate-500">Loading profile...</p>
+      <div className="flex min-h-[calc(100vh-72px)] items-center justify-center px-4">
+        <div className="text-center">
+          <h1 className="text-lg font-semibold text-slate-950">
+            We couldn&apos;t verify your session
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Please check your connection and try again.
+          </p>
+        </div>
       </div>
     );
   }

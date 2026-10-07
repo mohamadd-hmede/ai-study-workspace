@@ -1,5 +1,6 @@
 "use client";
 
+import { classifyPuterError } from "@/lib/puter-errors";
 import { FormEvent, useState } from "react";
 import { X } from "lucide-react";
 
@@ -41,7 +42,36 @@ export default function CreateCourseForm({
       setTitle("");
       setDescription("");
       onClose();
-    } catch {
+    } catch (createError) {
+      console.error("Course creation error:", createError);
+
+      const classifiedError = classifyPuterError(createError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setError(
+          "Your Puter account has no usage remaining. The course could not be created.",
+        );
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setError(
+          "The course could not be created right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "auth_required") {
+        setError(
+          "Your Puter session is no longer available. Please sign in again.",
+        );
+        return;
+      }
+
       setError("Failed to create course. Please try again.");
     } finally {
       setIsCreating(false);

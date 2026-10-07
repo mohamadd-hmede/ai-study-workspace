@@ -2,7 +2,7 @@ import CourseCard from "@/components/courses/CourseCard";
 import type { Course } from "@/types/course";
 
 type CourseWithMaterialCount = Course & {
-  materialCount: number;
+  materialCount: number | null;
 };
 
 type CourseListProps = {
