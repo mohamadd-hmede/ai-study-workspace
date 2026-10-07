@@ -777,7 +777,7 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         <p className="font-medium text-gray-900">Preview not available</p>
 
         <p className="mt-2 text-sm text-gray-500">
-          This file type cannot be previewed directly in StudyFlow.
+          This file type cannot be previewed directly in Learnadio.
         </p>
       </div>
     </div>

@@ -38,7 +38,7 @@ export default function MaterialUploadForm({
       if (!capability) {
         setFile(null);
         setError(
-          "This file type is not supported because StudyFlow cannot safely read and preview it.",
+          "This file type is not supported because Learnadio cannot safely read and preview it.",
         );
         return;
       }
@@ -49,7 +49,7 @@ export default function MaterialUploadForm({
 
       setFile(null);
       setError(
-        "StudyFlow could not verify this file. Please choose another file.",
+        "Learnadio could not verify this file. Please choose another file.",
       );
     }
   };

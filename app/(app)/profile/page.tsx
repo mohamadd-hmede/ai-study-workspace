@@ -305,7 +305,7 @@ export default function ProfilePage() {
     return null;
   }
 
-  const visibleName = displayName || "StudyFlow User";
+  const visibleName = displayName || "Learnadio User";
   const initials = getInitials(visibleName);
 
   const subscribed = user.subscribed === true;
@@ -344,7 +344,7 @@ export default function ProfilePage() {
           </h1>
 
           <p className="mt-2 text-base text-slate-500">
-            Manage your StudyFlow account, plan, and usage.
+            Manage your Learnadio account, plan, and usage.
           </p>
         </section>
 
@@ -648,7 +648,7 @@ export default function ProfilePage() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Manage the account connected to StudyFlow services.
+              Manage the account connected to Learnadio services.
             </p>
           </div>
 
@@ -665,7 +665,7 @@ export default function ProfilePage() {
                   </h3>
 
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                    Your connected account provides StudyFlow&apos;s AI
+                    Your connected account provides Learnadio&apos;s AI
                     features, cloud storage, monthly usage allowance, and
                     billing.
                   </p>

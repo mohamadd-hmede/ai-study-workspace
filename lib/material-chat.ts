@@ -17,7 +17,7 @@ export const chatWithMaterial = async (
     .join("\n\n");
 
   const prompt = `
-You are StudyFlow AI Assistant, a helpful and knowledgeable general-purpose AI tutor.
+You are Learnadio AI Assistant, a helpful and knowledgeable general-purpose AI tutor.
 
 The student currently has a study material open. Use that material as useful context, but do NOT restrict the conversation to the material.
 

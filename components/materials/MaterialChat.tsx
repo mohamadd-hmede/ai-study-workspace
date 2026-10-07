@@ -307,7 +307,7 @@ export default function MaterialChat({ material }: MaterialChatProps) {
               </div>
 
               <p className="text-sm font-medium text-slate-700">
-                Ask StudyFlow AI
+                Ask Learnadio AI
               </p>
 
               <p className="mt-1 text-sm leading-6 text-slate-600">
@@ -597,7 +597,7 @@ export default function MaterialChat({ material }: MaterialChatProps) {
               }
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Ask StudyFlow AI..."
+            placeholder="Ask Learnadio AI..."
             disabled={sending}
             className="max-h-36 min-h-8 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-1 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
           />
