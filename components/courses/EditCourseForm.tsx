@@ -1,5 +1,6 @@
 "use client";
 
+import { classifyPuterError } from "@/lib/puter-errors";
 import { FormEvent, useState } from "react";
 import { updateCourse } from "@/lib/courses";
 import type { Course } from "@/types/course";
@@ -46,7 +47,36 @@ export default function EditCourseForm({
       }
 
       onCourseUpdated(updatedCourse);
-    } catch {
+    } catch (updateError) {
+      console.error("Course update error:", updateError);
+
+      const classifiedError = classifyPuterError(updateError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setError(
+          "Your Puter account has no usage remaining. The course could not be updated.",
+        );
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setError(
+          "The course could not be updated right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "auth_required") {
+        setError(
+          "Your Puter session is no longer available. Please sign in again.",
+        );
+        return;
+      }
+
       setError("Failed to update course. Please try again.");
     } finally {
       setIsUpdating(false);

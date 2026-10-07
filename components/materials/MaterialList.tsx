@@ -9,6 +9,7 @@ import {
 } from "@/components/materials/MaterialFileIcon";
 import type { Material } from "@/types/material";
 import { deleteMaterial, renameMaterial } from "@/lib/materials";
+import { classifyPuterError } from "@/lib/puter-errors";
 
 type MaterialListProps = {
   materials: Material[];
@@ -79,7 +80,36 @@ export default function MaterialList({
       onMaterialRenamed(updatedMaterial);
       setRenamingMaterial(null);
       setRenameValue("");
-    } catch {
+    } catch (renameError) {
+      console.error("Material rename error:", renameError);
+
+      const classifiedError = classifyPuterError(renameError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setError(
+          "Your Puter account has no usage remaining. The material could not be renamed.",
+        );
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setError(
+          "The material could not be renamed right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "auth_required") {
+        setError(
+          "Your Puter session is no longer available. Please sign in again.",
+        );
+        return;
+      }
+
       setError("Failed to rename material. Please try again.");
     } finally {
       setIsRenaming(false);
@@ -108,7 +138,36 @@ export default function MaterialList({
       }
 
       onMaterialDeleted(material.id);
-    } catch {
+    } catch (deleteError) {
+      console.error("Material deletion error:", deleteError);
+
+      const classifiedError = classifyPuterError(deleteError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setError(
+          "Your Puter account has no usage remaining. The material could not be deleted.",
+        );
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setError(
+          "The material could not be deleted right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "auth_required") {
+        setError(
+          "Your Puter session is no longer available. Please sign in again.",
+        );
+        return;
+      }
+
       setError("Failed to delete material. Please try again.");
     } finally {
       setDeletingId(null);
@@ -252,6 +311,12 @@ export default function MaterialList({
                 autoFocus
                 className="mt-2 h-11 w-full rounded-lg border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 disabled:bg-slate-50"
               />
+
+              {error && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 flex justify-end gap-3">

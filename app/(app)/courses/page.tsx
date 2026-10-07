@@ -10,12 +10,42 @@ import { getMaterialsByCourse } from "@/lib/materials";
 import { Plus, Search } from "lucide-react";
 import CreateCourseForm from "@/components/courses/CreateCourseForm";
 import EditCourseForm from "@/components/courses/EditCourseForm";
+import { classifyPuterError } from "@/lib/puter-errors";
 
-type CourseWithMaterialCount = Course & { materialCount: number };
+type CourseWithMaterialCount = Course & {
+  materialCount: number | null;
+};
+
+const loadCoursesWithMaterialCounts = async () => {
+  const currentCourses = await getCourses();
+
+  return await Promise.all(
+    currentCourses.map(async (course) => {
+      try {
+        const materials = await getMaterialsByCourse(course.id);
+
+        return {
+          ...course,
+          materialCount: materials.length,
+        };
+      } catch (error) {
+        console.error(
+          `Failed to load materials for course ${course.id}:`,
+          error,
+        );
+
+        return {
+          ...course,
+          materialCount: null,
+        };
+      }
+    }),
+  );
+};
 
 export default function CoursesPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, authStatus } = useAuth();
 
   const [courses, setCourses] = useState<CourseWithMaterialCount[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
@@ -32,27 +62,21 @@ export default function CoursesPage() {
       return;
     }
 
-    if (!user) {
+    if (authStatus === "unauthenticated") {
       router.replace("/sign-in?redirect=/courses");
+      return;
+    }
+
+    if (authStatus !== "authenticated" || !user) {
       return;
     }
 
     const loadCourses = async () => {
       try {
-        const currentCourses = await getCourses();
-
-        const coursesWithMaterialCount = await Promise.all(
-          currentCourses.map(async (course) => {
-            const materials = await getMaterialsByCourse(course.id);
-
-            return {
-              ...course,
-              materialCount: materials.length,
-            };
-          }),
-        );
+        const coursesWithMaterialCount = await loadCoursesWithMaterialCounts();
 
         setCourses(coursesWithMaterialCount);
+        setCoursesError(null);
       } catch {
         setCoursesError("Failed to load courses. Please try again.");
       } finally {
@@ -61,25 +85,14 @@ export default function CoursesPage() {
     };
 
     loadCourses();
-  }, [user, authLoading, router]);
+  }, [user, authLoading, authStatus, router]);
 
   const retryLoadCourses = async () => {
     setCoursesLoading(true);
     setCoursesError(null);
 
     try {
-      const currentCourses = await getCourses();
-
-      const coursesWithMaterialCount = await Promise.all(
-        currentCourses.map(async (course) => {
-          const materials = await getMaterialsByCourse(course.id);
-
-          return {
-            ...course,
-            materialCount: materials.length,
-          };
-        }),
-      );
+      const coursesWithMaterialCount = await loadCoursesWithMaterialCounts();
 
       setCourses(coursesWithMaterialCount);
     } catch {
@@ -135,7 +148,36 @@ export default function CoursesPage() {
       );
 
       setDeletingCourse(null);
-    } catch {
+    } catch (courseDeleteError) {
+      console.error("Course deletion error:", courseDeleteError);
+
+      const classifiedError = classifyPuterError(courseDeleteError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setDeleteError(
+          "Your Puter account has no usage remaining. The course could not be deleted.",
+        );
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setDeleteError(
+          "The course could not be deleted right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "auth_required") {
+        setDeleteError(
+          "Your Puter session is no longer available. Please sign in again.",
+        );
+        return;
+      }
+
       setDeleteError("Failed to delete course. Please try again.");
     } finally {
       setIsDeleting(false);
@@ -160,6 +202,22 @@ export default function CoursesPage() {
       <main className="flex min-h-screen items-center justify-center">
         <p>Loading...</p>
       </main>
+    );
+  }
+
+  if (authStatus === "error" && !user) {
+    return (
+      <div className="flex min-h-[calc(100vh-72px)] items-center justify-center px-4">
+        <div className="text-center">
+          <h1 className="text-lg font-semibold text-slate-950">
+            We couldn&apos;t verify your session
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Please check your connection and try again.
+          </p>
+        </div>
+      </div>
     );
   }
 

@@ -15,7 +15,7 @@ import type { Material } from "@/types/material";
 export default function CourseDetailsPage() {
   const params = useParams<{ courseId: string }>();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, authStatus } = useAuth();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [courseLoading, setCourseLoading] = useState(true);
@@ -24,6 +24,7 @@ export default function CourseDetailsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [materialsError, setMaterialsError] = useState<string | null>(null);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"materials" | "details">(
     "materials",
@@ -54,9 +55,13 @@ export default function CourseDetailsPage() {
       return;
     }
 
-    if (!user) {
+    if (authStatus === "unauthenticated") {
       const redirect = encodeURIComponent(`/courses/${params.courseId}`);
       router.replace(`/sign-in?redirect=${redirect}`);
+      return;
+    }
+
+    if (authStatus !== "authenticated" || !user) {
       return;
     }
 
@@ -70,11 +75,20 @@ export default function CourseDetailsPage() {
         }
 
         setCourse(currentCourse);
+        setCourseError(null);
 
-        const currentMaterials = await getMaterialsByCourse(params.courseId);
+        try {
+          const currentMaterials = await getMaterialsByCourse(params.courseId);
 
-        setMaterials(currentMaterials);
-      } catch {
+          setMaterials(currentMaterials);
+          setMaterialsError(null);
+        } catch (materialsLoadError) {
+          console.error("Failed to load course materials:", materialsLoadError);
+
+          setMaterialsError("Materials could not be loaded. Please try again.");
+        }
+      } catch (courseLoadError) {
+        console.error("Failed to load course:", courseLoadError);
         setCourseError("Failed to load course. Please try again.");
       } finally {
         setCourseLoading(false);
@@ -82,7 +96,7 @@ export default function CourseDetailsPage() {
     };
 
     loadCourse();
-  }, [user, authLoading, params.courseId, router]);
+  }, [user, authLoading, authStatus, router, params.courseId]);
 
   const handleCourseUpdated = (updatedCourse: Course) => {
     setCourse(updatedCourse);
@@ -92,6 +106,7 @@ export default function CourseDetailsPage() {
   const retryLoadCourse = async () => {
     setCourseLoading(true);
     setCourseError(null);
+    setMaterialsError(null);
 
     try {
       const currentCourse = await getCourseById(params.courseId);
@@ -103,9 +118,17 @@ export default function CourseDetailsPage() {
 
       setCourse(currentCourse);
 
-      const currentMaterials = await getMaterialsByCourse(params.courseId);
-      setMaterials(currentMaterials);
-    } catch {
+      try {
+        const currentMaterials = await getMaterialsByCourse(params.courseId);
+
+        setMaterials(currentMaterials);
+      } catch (materialsLoadError) {
+        console.error("Failed to load course materials:", materialsLoadError);
+
+        setMaterialsError("Materials could not be loaded. Please try again.");
+      }
+    } catch (courseLoadError) {
+      console.error("Failed to load course:", courseLoadError);
       setCourseError("Failed to load course. Please try again.");
     } finally {
       setCourseLoading(false);
@@ -144,7 +167,31 @@ export default function CourseDetailsPage() {
     }
   };
 
-  if (authLoading || courseLoading) {
+  if (authLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <p>Loading...</p>
+      </main>
+    );
+  }
+
+  if (authStatus === "error" && !user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
+        <div className="max-w-md text-center">
+          <h1 className="text-lg font-semibold text-slate-950">
+            We couldn&apos;t verify your session
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Please check your connection and try again.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (courseLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p>Loading...</p>
@@ -260,6 +307,19 @@ export default function CourseDetailsPage() {
 
         {activeTab === "materials" && (
           <div className="mt-7">
+            {materialsError && (
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="text-sm text-red-700">{materialsError}</p>
+
+                <button
+                  type="button"
+                  onClick={retryLoadCourse}
+                  className="mt-3 text-sm font-medium text-red-700 underline"
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="w-full sm:max-w-md">
                 <input
@@ -332,7 +392,7 @@ export default function CourseDetailsPage() {
             <div className="mt-5">
               <p className="text-sm font-medium text-slate-500">Materials</p>
               <p className="mt-1 text-base font-medium text-slate-900">
-                {materials.length}
+                {materialsError ? "Unavailable" : materials.length}
               </p>
             </div>
 

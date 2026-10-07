@@ -1,5 +1,6 @@
 "use client";
 
+import { classifyPuterError } from "@/lib/puter-errors";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -44,14 +45,29 @@ export default function SignInCard({ mobile = false }: SignInCardProps) {
 
     await refreshUser();
 
-    const currentDisplayName = await getDisplayName();
+    try {
+      const currentDisplayName = await getDisplayName();
 
-    if (!currentDisplayName) {
-      setNeedsDisplayName(true);
-      return true;
+      if (!currentDisplayName) {
+        setNeedsDisplayName(true);
+        return true;
+      }
+
+      try {
+        await refreshDisplayName();
+      } catch (displayNameRefreshError) {
+        console.error(
+          "Failed to refresh display name after sign in:",
+          displayNameRefreshError,
+        );
+      }
+    } catch (displayNameError) {
+      console.error(
+        "Failed to load display name after sign in:",
+        displayNameError,
+      );
     }
 
-    await refreshDisplayName();
     router.push(redirect);
 
     return true;
@@ -67,11 +83,77 @@ export default function SignInCard({ mobile = false }: SignInCardProps) {
 
     try {
       await signIn();
-      await finishSignIn();
-    } catch {
+    } catch (signInError) {
+      const classifiedError = classifyPuterError(signInError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setError(
+          "Your Puter account has no usage remaining. Puter requires available usage to complete sign in.",
+        );
+        setIsSigningIn(false);
+        return;
+      }
+
+      if (classifiedError.category === "auth_cancelled") {
+        setError("Sign in was cancelled.");
+        setIsSigningIn(false);
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setError(
+          "Sign in is temporarily unavailable. Please try again in a moment.",
+        );
+        setIsSigningIn(false);
+        return;
+      }
+
+      // Puter signIn can reject even when authentication actually completed.
+      // Verify the resulting auth state before treating it as a failed sign in.
+      try {
+        const signedIn = await finishSignIn();
+
+        if (!signedIn) {
+          setError("Sign in could not be completed. Please try again.");
+        }
+      } catch (finishError) {
+        console.error("Failed to verify sign in:", finishError);
+        setError("Sign in could not be completed. Please try again.");
+      } finally {
+        setIsSigningIn(false);
+      }
+
+      return;
+    }
+
+    try {
       const signedIn = await finishSignIn();
 
       if (!signedIn) {
+        setError("Sign in could not be completed. Please try again.");
+      }
+    } catch (finishError) {
+      console.error("Failed to finish sign in:", finishError);
+
+      const classifiedError = classifyPuterError(finishError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setError(
+          "Your Puter account has no usage remaining. Sign in could not be completed.",
+        );
+      } else if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setError(
+          "Sign in is temporarily unavailable. Please try again in a moment.",
+        );
+      } else {
         setError("Sign in could not be completed. Please try again.");
       }
     } finally {
@@ -104,11 +186,47 @@ export default function SignInCard({ mobile = false }: SignInCardProps) {
 
     try {
       await setDisplayName(trimmedName);
-      await refreshDisplayName();
+
+      try {
+        await refreshDisplayName();
+      } catch (refreshError) {
+        console.error(
+          "Failed to refresh display name after save:",
+          refreshError,
+        );
+      }
 
       router.push(redirect);
-    } catch (error) {
-      console.error("Failed to save display name:", error);
+    } catch (saveError) {
+      console.error("Failed to save display name:", saveError);
+
+      const classifiedError = classifyPuterError(saveError);
+
+      if (classifiedError.category === "insufficient_balance") {
+        setError(
+          "Your Puter account has no usage remaining. Your name could not be saved.",
+        );
+        return;
+      }
+
+      if (
+        classifiedError.category === "network" ||
+        classifiedError.category === "service_unavailable" ||
+        classifiedError.category === "rate_limited"
+      ) {
+        setError(
+          "Your name could not be saved right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      if (classifiedError.category === "auth_required") {
+        setError(
+          "Your Puter session is no longer available. Please sign in again.",
+        );
+        return;
+      }
+
       setError("Your name could not be saved. Please try again.");
     } finally {
       setIsSavingName(false);

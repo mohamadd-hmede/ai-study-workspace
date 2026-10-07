@@ -13,33 +13,35 @@ import { getQuizAttemptsByMaterial } from "@/lib/quiz-history";
 import type { Course } from "@/types/course";
 
 type CourseWithMaterialCount = Course & {
-  materialCount: number;
+  materialCount: number | null;
 };
 
 type DashboardData = {
   courses: CourseWithMaterialCount[];
-  totalMaterials: number;
-  totalQuizzes: number;
+  totalCourses: number | null;
+  totalMaterials: number | null;
+  totalQuizzes: number | null;
 };
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, displayName, loading: authLoading } = useAuth();
+  const { user, displayName, loading: authLoading, authStatus } = useAuth();
 
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     courses: [],
-    totalMaterials: 0,
-    totalQuizzes: 0,
+    totalCourses: null,
+    totalMaterials: null,
+    totalQuizzes: null,
   });
 
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authStatus === "unauthenticated") {
       router.replace("/sign-in");
     }
-  }, [authLoading, user, router]);
+  }, [authStatus, router]);
 
   useEffect(() => {
     let isActive = true;
@@ -49,60 +51,93 @@ export default function DashboardPage() {
         return;
       }
 
+      setDashboardLoading(true);
+      setError(null);
+
       try {
         const courses = await getCourses();
 
         const coursesWithMaterials = await Promise.all(
           courses.map(async (course) => {
-            const materials = await getMaterialsByCourse(course.id);
+            try {
+              const materials = await getMaterialsByCourse(course.id);
 
-            return {
-              course,
-              materials,
-            };
+              return {
+                course,
+                materials,
+                materialCount: materials.length,
+              };
+            } catch (materialError) {
+              console.error(
+                `Failed to load materials for course ${course.id}:`,
+                materialError,
+              );
+
+              return {
+                course,
+                materials: null,
+                materialCount: null,
+              };
+            }
           }),
         );
 
-        const allMaterials = coursesWithMaterials.flatMap(
-          ({ materials }) => materials,
+        const availableMaterials = coursesWithMaterials.flatMap(
+          ({ materials }) => materials ?? [],
         );
 
-        const quizAttempts = await Promise.all(
-          allMaterials.map((material) =>
-            getQuizAttemptsByMaterial(material.id),
-          ),
+        const materialsAvailable = coursesWithMaterials.every(
+          ({ materials }) => materials !== null,
         );
+
+        let totalQuizzes: number | null = null;
+
+        if (materialsAvailable) {
+          try {
+            const quizAttempts = await Promise.all(
+              availableMaterials.map((material) =>
+                getQuizAttemptsByMaterial(material.id),
+              ),
+            );
+
+            totalQuizzes = quizAttempts.reduce(
+              (total, attempts) => total + attempts.length,
+              0,
+            );
+          } catch (quizError) {
+            console.error("Failed to load quiz history:", quizError);
+          }
+        }
 
         const coursesWithMaterialCount: CourseWithMaterialCount[] =
-          coursesWithMaterials.map(({ course, materials }) => ({
+          coursesWithMaterials.map(({ course, materialCount }) => ({
             ...course,
-            materialCount: materials.length,
+            materialCount,
           }));
 
         if (isActive) {
           setDashboardData({
             courses: coursesWithMaterialCount,
-            totalMaterials: allMaterials.length,
-            totalQuizzes: quizAttempts.reduce(
-              (total, attempts) => total + attempts.length,
-              0,
-            ),
+            totalCourses: courses.length,
+            totalMaterials: materialsAvailable
+              ? availableMaterials.length
+              : null,
+            totalQuizzes,
           });
 
-          setError(null);
           setDashboardLoading(false);
         }
       } catch (loadError) {
-        console.error("Failed to load dashboard:", loadError);
+        console.error("Failed to load courses for dashboard:", loadError);
 
         if (isActive) {
-          setError("Failed to load your dashboard. Please try again.");
+          setError("Failed to load your courses. Please try again.");
           setDashboardLoading(false);
         }
       }
     };
 
-    loadDashboard();
+    void loadDashboard();
 
     return () => {
       isActive = false;
@@ -110,6 +145,29 @@ export default function DashboardPage() {
   }, [user]);
 
   if (authLoading || dashboardLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-72px)] items-center justify-center">
+        <p className="text-sm text-slate-500">Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  if (authStatus === "error" && !user) {
+    return (
+      <div className="flex min-h-[calc(100vh-72px)] items-center justify-center px-6">
+        <div className="max-w-md text-center">
+          <h1 className="text-xl font-semibold text-slate-900">
+            We couldn&apos;t verify your session
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Please check your connection and try again.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (dashboardLoading) {
     return (
       <div className="flex min-h-[calc(100vh-72px)] items-center justify-center">
         <p className="text-sm text-slate-500">Loading dashboard...</p>
@@ -128,7 +186,7 @@ export default function DashboardPage() {
   const stats = [
     {
       label: "Courses",
-      value: dashboardData.courses.length,
+      value: dashboardData.totalCourses,
       description: "Total courses",
       icon: BookOpen,
       iconStyle: "bg-blue-50 text-blue-600",
@@ -196,7 +254,7 @@ export default function DashboardPage() {
                   <p className="font-semibold text-slate-900">{stat.label}</p>
 
                   <p className="mt-1 text-4xl font-bold tracking-tight text-slate-950">
-                    {stat.value}
+                    {stat.value ?? "—"}
                   </p>
 
                   <p className="mt-1 text-sm text-slate-500">
@@ -221,7 +279,19 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {recentCourses.length === 0 ? (
+          {error ? (
+            <div className="mt-5 rounded-xl border border-dashed border-slate-300 px-6 py-12 text-center">
+              <BookOpen className="mx-auto h-9 w-9 text-slate-400" />
+
+              <h3 className="mt-4 font-semibold text-slate-900">
+                Courses unavailable
+              </h3>
+
+              <p className="mt-1 text-sm text-slate-500">
+                We couldn&apos;t load your courses right now.
+              </p>
+            </div>
+          ) : recentCourses.length === 0 ? (
             <div className="mt-5 rounded-xl border border-dashed border-slate-300 px-6 py-12 text-center">
               <BookOpen className="mx-auto h-9 w-9 text-slate-400" />
 
@@ -261,8 +331,11 @@ export default function DashboardPage() {
                   </h3>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    {course.materialCount}{" "}
-                    {course.materialCount === 1 ? "material" : "materials"}
+                    {course.materialCount === null
+                      ? "Materials unavailable"
+                      : `${course.materialCount} ${
+                          course.materialCount === 1 ? "material" : "materials"
+                        }`}
                   </p>
 
                   <Link
