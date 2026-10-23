@@ -14,6 +14,9 @@ import { getMaterialFileCapability } from "@/lib/material-file-capabilities";
 
 import { getMaterialFileLabel } from "@/components/materials/MaterialFileIcon";
 
+import { classifyPuterError } from "@/lib/puter-errors";
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
+
 type MaterialPreviewProps = {
   material: Material;
 };
@@ -99,6 +102,9 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
 
   const [error, setError] = useState<string | null>(null);
 
+  const [usageLimitReached, setUsageLimitReached] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
   const [textContent, setTextContent] = useState<string | null>(null);
 
   const [workbook, setWorkbook] = useState<WorkBook | null>(null);
@@ -173,6 +179,9 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         setLoading(true);
 
         setError(null);
+
+        setUsageLimitReached(false);
+        setPreviewUrl(null);
 
         setTextContent(null);
 
@@ -280,10 +289,13 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
         objectUrl = URL.createObjectURL(typedFile);
 
         setPreviewUrl(objectUrl);
-      } catch (error) {
-        console.error("Material preview error:", error);
+      } catch (loadError) {
+        console.error("Material preview error:", loadError);
 
         if (isActive) {
+          const { category } = classifyPuterError(loadError);
+
+          setUsageLimitReached(category === "insufficient_balance");
           setError("Failed to load material preview.");
         }
       } finally {
@@ -304,14 +316,11 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
     };
   }, [
     material.path,
-
     material.type,
-
     material.name,
-
     material.originalFileName,
-
     capability?.previewStrategy,
+    retryCount,
   ]);
 
   useEffect(() => {
@@ -460,8 +469,29 @@ export default function MaterialPreview({ material }: MaterialPreviewProps) {
 
   if (error) {
     return (
-      <div className="flex min-h-96 items-center justify-center">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="flex min-h-96 items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          {usageLimitReached ? (
+            <PuterUsageLimitNotice
+              onRetry={() => setRetryCount((count) => count + 1)}
+            />
+          ) : (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 p-5"
+            >
+              <p className="text-sm text-red-700">{error}</p>
+
+              <button
+                type="button"
+                onClick={() => setRetryCount((count) => count + 1)}
+                className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

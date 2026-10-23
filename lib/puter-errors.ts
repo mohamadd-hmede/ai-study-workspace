@@ -15,13 +15,16 @@ export type ClassifiedPuterError = {
 };
 
 const getErrorCode = (error: unknown): string | null => {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof error.code === "string"
-  ) {
+  if (typeof error !== "object" || error === null) {
+    return null;
+  }
+
+  if ("code" in error && typeof error.code === "string") {
     return error.code.toLowerCase();
+  }
+
+  if ("error" in error && typeof error.error === "string") {
+    return error.error.toLowerCase();
   }
 
   return null;
@@ -97,6 +100,7 @@ export const classifyPuterError = (error: unknown): ClassifiedPuterError => {
     code === "cancelled" ||
     code === "canceled" ||
     code === "auth_cancelled" ||
+    code === "auth_window_closed" ||
     message.includes("cancelled") ||
     message.includes("canceled")
   ) {

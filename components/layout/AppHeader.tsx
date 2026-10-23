@@ -48,7 +48,7 @@ const getInitials = (username: string) => {
 
 export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   const router = useRouter();
-  const { displayName, loading } = useAuth();
+  const { displayName, loading, refreshUser } = useAuth();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -135,9 +135,23 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   };
 
   const handleSignOut = async () => {
-    setMenuOpen(false);
-    await signOut();
-    router.replace("/sign-in");
+    try {
+      await signOut();
+      await refreshUser();
+
+      setMenuOpen(false);
+      setSearchOpen(false);
+      setSearchQuery("");
+      setSearchData({
+        courses: [],
+        materials: [],
+      });
+
+      router.replace("/sign-in");
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+      window.alert("Failed to sign out. Please try again.");
+    }
   };
 
   const normalizedQuery = searchQuery.trim().toLowerCase();

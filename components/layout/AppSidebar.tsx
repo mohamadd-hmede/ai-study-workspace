@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, House, LogOut, UserRound, X } from "lucide-react";
 
+import { useAuth } from "@/components/AuthProvider";
+
 import { signOut } from "@/lib/puter";
 
 const navigationItems = [
@@ -36,11 +38,18 @@ export default function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { refreshUser } = useAuth();
 
   const handleSignOut = async () => {
-    onClose?.();
-    await signOut();
-    router.replace("/sign-in");
+    try {
+      await signOut();
+      await refreshUser();
+      onClose?.();
+      router.replace("/sign-in");
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+      window.alert("Failed to sign out. Please try again.");
+    }
   };
 
   const handleNavigation = () => {

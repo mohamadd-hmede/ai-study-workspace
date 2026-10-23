@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/components/AuthProvider";
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
 import {
   getMonthlyUsage,
   getStorageSpace,
@@ -105,12 +106,15 @@ export default function ProfilePage() {
 
   const [usageError, setUsageError] = useState(false);
   const [storageError, setStorageError] = useState(false);
+  const [usageLimitReached, setUsageLimitReached] = useState(false);
+  const [storageLimitReached, setStorageLimitReached] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [editingName, setEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [nameUsageLimitReached, setNameUsageLimitReached] = useState(false);
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
@@ -122,6 +126,7 @@ export default function ProfilePage() {
     try {
       setUsageLoading(true);
       setUsageError(false);
+      setUsageLimitReached(false);
 
       const monthlyUsage = await getMonthlyUsage();
 
@@ -136,6 +141,9 @@ export default function ProfilePage() {
     } catch (error) {
       console.error("Failed to load resource usage:", error);
       setUsageError(true);
+      setUsageLimitReached(
+        classifyPuterError(error).category === "insufficient_balance",
+      );
     } finally {
       setUsageLoading(false);
     }
@@ -145,6 +153,7 @@ export default function ProfilePage() {
     try {
       setStorageLoading(true);
       setStorageError(false);
+      setStorageLimitReached(false);
 
       const storageSpace = await getStorageSpace();
 
@@ -155,6 +164,9 @@ export default function ProfilePage() {
     } catch (error) {
       console.error("Failed to load storage usage:", error);
       setStorageError(true);
+      setStorageLimitReached(
+        classifyPuterError(error).category === "insufficient_balance",
+      );
     } finally {
       setStorageLoading(false);
     }
@@ -200,39 +212,21 @@ export default function ProfilePage() {
     }
   };
 
-  const handleUpgrade = async () => {
-    try {
-      setUpgradeLoading(true);
-      setActionError(null);
-
-      await requestPlanUpgrade();
-
-      await Promise.all([
-        refreshUser(),
-        refreshDisplayName(),
-        loadUsage(),
-        loadStorage(),
-      ]);
-    } catch (error) {
-      console.error("Failed to open upgrade flow:", error);
-
-      setActionError(
-        "The upgrade window could not be opened. Please try again.",
-      );
-    } finally {
-      setUpgradeLoading(false);
-    }
+  const handleUpgrade = () => {
+    openPuterBilling();
   };
 
   const handleStartEditingName = () => {
     setEditedName(displayName ?? "");
     setNameError(null);
+    setNameUsageLimitReached(false);
     setEditingName(true);
   };
 
   const handleCancelEditingName = () => {
     setEditedName("");
     setNameError(null);
+    setNameUsageLimitReached(false);
     setEditingName(false);
   };
 
@@ -263,6 +257,7 @@ export default function ProfilePage() {
     try {
       setSavingName(true);
       setNameError(null);
+      setNameUsageLimitReached(false);
 
       await setDisplayName(trimmedName);
 
@@ -283,6 +278,7 @@ export default function ProfilePage() {
       const classifiedError = classifyPuterError(saveError);
 
       if (classifiedError.category === "insufficient_balance") {
+        setNameUsageLimitReached(true);
         setNameError(
           "Your Puter account has no usage remaining. Your name could not be updated.",
         );
@@ -349,7 +345,7 @@ export default function ProfilePage() {
     return null;
   }
 
-  const visibleName = displayName || "Learnadio User";
+  const visibleName = displayName || "Unavailable User For Now";
   const initials = getInitials(visibleName);
 
   const subscribed = user.subscribed === true;
@@ -414,6 +410,7 @@ export default function ProfilePage() {
 
                         if (nameError) {
                           setNameError(null);
+                          setNameUsageLimitReached(false);
                         }
                       }}
                       onKeyDown={(event) => {
@@ -428,9 +425,14 @@ export default function ProfilePage() {
                       className="h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-base font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
                     />
 
-                    {nameError && (
-                      <p className="mt-2 text-sm text-red-600">{nameError}</p>
-                    )}
+                    {nameError &&
+                      (nameUsageLimitReached ? (
+                        <PuterUsageLimitNotice
+                          onRetry={() => void handleSaveName()}
+                        />
+                      ) : (
+                        <p className="mt-2 text-sm text-red-600">{nameError}</p>
+                      ))}
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
@@ -558,7 +560,7 @@ export default function ProfilePage() {
                     type="button"
                     onClick={handleUpgrade}
                     disabled={upgradeLoading}
-                    className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {upgradeLoading ? "Opening..." : "Upgrade Plan"}
                   </button>
@@ -566,7 +568,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={openPuterBilling}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 transition hover:text-blue-700"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Manage Plan
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -589,9 +591,13 @@ export default function ProfilePage() {
                   Loading storage...
                 </p>
               ) : storageError || !storage ? (
-                <p className="mt-2 text-sm text-slate-500">
-                  Storage information is currently unavailable.
-                </p>
+                storageLimitReached ? (
+                  <PuterUsageLimitNotice onRetry={() => void loadStorage()} />
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">
+                    Storage information is currently unavailable.
+                  </p>
+                )
               ) : (
                 <>
                   <h3 className="mt-1 text-xl font-semibold text-slate-950">
@@ -650,9 +656,13 @@ export default function ProfilePage() {
               {usageLoading ? (
                 <p className="mt-2 text-sm text-slate-500">Loading usage...</p>
               ) : usageError || !usage ? (
-                <p className="mt-2 text-sm text-slate-500">
-                  Resource information is currently unavailable.
-                </p>
+                usageLimitReached ? (
+                  <PuterUsageLimitNotice onRetry={() => void loadUsage()} />
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">
+                    Resource information is currently unavailable.
+                  </p>
+                )
               ) : (
                 <>
                   <h3 className="mt-1 text-xl font-semibold text-slate-950">
@@ -709,9 +719,10 @@ export default function ProfilePage() {
                   </h3>
 
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                    Your connected account provides Learnadio&apos;s AI
-                    features, cloud storage, monthly usage allowance, and
-                    billing.
+                    Your Learnadio account is connected to Puter for
+                    authentication, AI services, and cloud storage. Manage your
+                    Puter account details, including your username, email
+                    address, and password, through your account settings.
                   </p>
                 </div>
               </div>

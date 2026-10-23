@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import {
+  cleanupAuthPopup,
   getCurrentUser,
   getDisplayName,
   setDisplayName,
@@ -117,7 +118,9 @@ export default function SignInCard({ mobile = false }: SignInCardProps) {
       try {
         const signedIn = await finishSignIn();
 
-        if (!signedIn) {
+        if (signedIn) {
+          cleanupAuthPopup();
+        } else {
           setError("Sign in could not be completed. Please try again.");
         }
       } catch (finishError) {

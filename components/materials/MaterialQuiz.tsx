@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 
 import { generateMaterialQuiz } from "@/lib/material-quiz";
+import { classifyPuterError } from "@/lib/puter-errors";
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
 import { getQuizAttemptsByMaterial, saveQuizAttempt } from "@/lib/quiz-history";
 
 import type { Material } from "@/types/material";
@@ -28,6 +30,12 @@ export default function MaterialQuiz({
   const [quiz, setQuiz] = useState<GeneratedQuiz | null>(null);
   const [generatingQuiz, setGeneratingQuiz] = useState(initialGeneration);
   const [quizError, setQuizError] = useState<string | null>(null);
+  const [quizUsageLimit, setQuizUsageLimit] = useState(false);
+  const [quizErrorAction, setQuizErrorAction] = useState<"generate" | "submit">(
+    "generate",
+  );
+  const [historyUsageLimit, setHistoryUsageLimit] = useState(false);
+  const [historyRetryCount, setHistoryRetryCount] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<
     Record<number, number>
@@ -45,6 +53,7 @@ export default function MaterialQuiz({
 
     const loadQuizHistory = async () => {
       setHistoryLoading(true);
+      setHistoryUsageLimit(false);
 
       try {
         const attempts = await getQuizAttemptsByMaterial(material.id);
@@ -52,6 +61,7 @@ export default function MaterialQuiz({
         if (isActive) {
           setSelectedHistoryAttempt(null);
           setQuizHistory(attempts);
+          setHistoryUsageLimit(false);
         }
       } catch (error) {
         console.error("Failed to load quiz history:", error);
@@ -59,6 +69,9 @@ export default function MaterialQuiz({
         if (isActive) {
           setSelectedHistoryAttempt(null);
           setQuizHistory([]);
+          setHistoryUsageLimit(
+            classifyPuterError(error).category === "insufficient_balance",
+          );
         }
       } finally {
         if (isActive) {
@@ -72,7 +85,7 @@ export default function MaterialQuiz({
     return () => {
       isActive = false;
     };
-  }, [material.id]);
+  }, [material.id, historyRetryCount]);
 
   useEffect(() => {
     if (!initialGeneration) {
@@ -95,6 +108,10 @@ export default function MaterialQuiz({
         console.error("Quiz generation error:", error);
 
         if (isActive) {
+          setQuizErrorAction("generate");
+          setQuizUsageLimit(
+            classifyPuterError(error).category === "insufficient_balance",
+          );
           setQuizError("Failed to generate quiz. Please try again.");
         }
       } finally {
@@ -118,6 +135,7 @@ export default function MaterialQuiz({
 
     setGeneratingQuiz(true);
     setQuizError(null);
+    setQuizUsageLimit(false);
     setSelectedHistoryAttempt(null);
 
     try {
@@ -129,6 +147,10 @@ export default function MaterialQuiz({
       setQuizSubmitted(false);
     } catch (error) {
       console.error("Quiz generation error:", error);
+      setQuizErrorAction("generate");
+      setQuizUsageLimit(
+        classifyPuterError(error).category === "insufficient_balance",
+      );
       setQuizError("Failed to generate quiz. Please try again.");
     } finally {
       setGeneratingQuiz(false);
@@ -141,6 +163,7 @@ export default function MaterialQuiz({
     setSelectedAnswers({});
     setQuizSubmitted(false);
     setQuizError(null);
+    setQuizUsageLimit(false);
     setSelectedHistoryAttempt(null);
     setShowEndQuizModal(false);
   };
@@ -172,6 +195,7 @@ export default function MaterialQuiz({
 
     setSubmittingQuiz(true);
     setQuizError(null);
+    setQuizUsageLimit(false);
 
     try {
       const score = calculateScore();
@@ -193,6 +217,10 @@ export default function MaterialQuiz({
       setQuizSubmitted(true);
     } catch (error) {
       console.error("Failed to save quiz attempt:", error);
+      setQuizErrorAction("submit");
+      setQuizUsageLimit(
+        classifyPuterError(error).category === "insufficient_balance",
+      );
       setQuizError("Failed to save your quiz result. Please try again.");
     } finally {
       setSubmittingQuiz(false);
@@ -253,6 +281,14 @@ export default function MaterialQuiz({
   };
 
   const renderHistory = () => {
+    if (historyUsageLimit && !historyLoading) {
+      return (
+        <PuterUsageLimitNotice
+          onRetry={() => setHistoryRetryCount((count) => count + 1)}
+        />
+      );
+    }
+
     if (historyLoading) {
       return (
         <div className="flex items-center justify-center py-10">
@@ -409,11 +445,14 @@ export default function MaterialQuiz({
                 </button>
               </div>
 
-              {quizError && (
-                <div className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {quizError}
-                </div>
-              )}
+              {quizError &&
+                (quizUsageLimit ? (
+                  <PuterUsageLimitNotice onRetry={handleGenerateQuiz} />
+                ) : (
+                  <div className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {quizError}
+                  </div>
+                ))}
             </div>
 
             <div className="p-5 sm:p-6 lg:p-8">
@@ -464,11 +503,20 @@ export default function MaterialQuiz({
             )}
           </div>
 
-          {quizError && (
-            <div className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {quizError}
-            </div>
-          )}
+          {quizError &&
+            (quizUsageLimit ? (
+              <PuterUsageLimitNotice
+                onRetry={
+                  quizErrorAction === "submit"
+                    ? handleSubmitQuiz
+                    : handleGenerateQuiz
+                }
+              />
+            ) : (
+              <div className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {quizError}
+              </div>
+            ))}
 
           {quizSubmitted ? (
             <div className="py-6">

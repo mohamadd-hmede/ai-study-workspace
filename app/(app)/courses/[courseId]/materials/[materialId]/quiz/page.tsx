@@ -35,6 +35,7 @@ export default function MaterialQuizPage() {
       try {
         setLoading(true);
         setError(null);
+        setMaterial(null);
 
         const foundMaterial = await getMaterialById(
           params.courseId,
