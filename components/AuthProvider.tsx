@@ -7,8 +7,8 @@ import {
   useEffect,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import { getCurrentUser, getDisplayName } from "@/lib/puter";
-
 type User = Awaited<ReturnType<typeof getCurrentUser>> | null;
 
 export type AuthStatus =
@@ -26,19 +26,41 @@ type AuthContextType = {
   refreshDisplayName: () => Promise<void>;
 };
 
+type AuthState = {
+  user: User;
+  displayName: string | null;
+  status: AuthStatus;
+};
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User>(null);
-  const [displayName, setDisplayNameState] = useState<string | null>(null);
-  const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
+  const pathname = usePathname();
+  const isSignInPage = pathname === "/sign-in";
+
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    displayName: null,
+    status: "loading",
+  });
+
+  const [verifiedPath, setVerifiedPath] = useState<string | null>(null);
 
   const refreshUser = async () => {
     try {
       const currentUser = await getCurrentUser();
 
-      setUser(currentUser);
-      setAuthStatus(currentUser ? "authenticated" : "unauthenticated");
+      setAuthState((previous) => ({
+        ...previous,
+        user: currentUser,
+        displayName:
+          currentUser?.uuid === previous.user?.uuid
+            ? previous.displayName
+            : null,
+        status: currentUser ? "authenticated" : "unauthenticated",
+      }));
+
+      setVerifiedPath(pathname);
     } catch (error) {
       const status =
         error && typeof error === "object" && "status" in error
@@ -50,22 +72,44 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           ? error.message
           : undefined;
 
-      if (status === 401 && message === "Unauthorized") {
-        setUser(null);
-        setAuthStatus("unauthenticated");
-        return;
-      }
+      setAuthState({
+        user: null,
+        displayName: null,
+        status:
+          status === 401 && message === "Unauthorized"
+            ? "unauthenticated"
+            : "error",
+      });
 
-      console.error("Failed to refresh authentication state:", error);
-      setAuthStatus("error");
-      throw error;
+      setVerifiedPath(pathname);
+
+      if (!(status === 401 && message === "Unauthorized")) {
+        console.error("Failed to refresh authentication state:", error);
+        throw error;
+      }
     }
   };
 
   const refreshDisplayName = async () => {
     try {
+      const currentUser = await getCurrentUser();
+
+      if (!currentUser) {
+        return;
+      }
+
       const currentDisplayName = await getDisplayName();
-      setDisplayNameState(currentDisplayName);
+
+      setAuthState((previous) => {
+        if (previous.user?.uuid !== currentUser.uuid) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          displayName: currentDisplayName,
+        };
+      });
     } catch (error) {
       console.error("Failed to refresh display name:", error);
       throw error;
@@ -73,27 +117,48 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    if (isSignInPage) {
+      return;
+    }
+
+    let cancelled = false;
+
     const loadAuth = async () => {
       try {
         const currentUser = await getCurrentUser();
 
-        setUser(currentUser);
+        if (cancelled) return;
 
         if (!currentUser) {
-          setAuthStatus("unauthenticated");
+          setAuthState({
+            user: null,
+            displayName: null,
+            status: "unauthenticated",
+          });
+          setVerifiedPath(pathname);
           return;
         }
 
-        setAuthStatus("authenticated");
+        let currentDisplayName: string | null = null;
 
         try {
-          const currentDisplayName = await getDisplayName();
-          setDisplayNameState(currentDisplayName);
+          currentDisplayName = await getDisplayName();
         } catch (error) {
           console.error("Failed to load display name:", error);
-          setDisplayNameState(null);
         }
+
+        if (cancelled) return;
+
+        setAuthState({
+          user: currentUser,
+          displayName: currentDisplayName,
+          status: "authenticated",
+        });
+
+        setVerifiedPath(pathname);
       } catch (error) {
+        if (cancelled) return;
+
         const status =
           error && typeof error === "object" && "status" in error
             ? error.status
@@ -104,28 +169,48 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             ? error.message
             : undefined;
 
-        if (status === 401 && message === "Unauthorized") {
-          setUser(null);
-          setAuthStatus("unauthenticated");
-          return;
-        }
+        setAuthState({
+          user: null,
+          displayName: null,
+          status:
+            status === 401 && message === "Unauthorized"
+              ? "unauthenticated"
+              : "error",
+        });
 
-        console.error("Failed to load authentication state:", error);
-        setAuthStatus("error");
+        setVerifiedPath(pathname);
+
+        if (!(status === 401 && message === "Unauthorized")) {
+          console.error("Failed to load authentication state:", error);
+        }
       }
     };
 
     void loadAuth();
-  }, []);
 
-  const loading = authStatus === "loading";
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignInPage, pathname]);
+
+  const isVerified = !isSignInPage && verifiedPath === pathname;
+
+  const authStatus: AuthStatus = isSignInPage
+    ? "unauthenticated"
+    : isVerified
+      ? authState.status
+      : "loading";
+
+  const user = authStatus === "authenticated" ? authState.user : null;
+
+  const displayName = user ? authState.displayName : null;
 
   return (
     <AuthContext.Provider
       value={{
         user,
         displayName,
-        loading,
+        loading: authStatus === "loading",
         authStatus,
         refreshUser,
         refreshDisplayName,

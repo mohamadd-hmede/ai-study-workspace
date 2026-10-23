@@ -16,6 +16,9 @@ import {
   getMaterialFileStyle,
 } from "@/components/materials/MaterialFileIcon";
 
+import { classifyPuterError } from "@/lib/puter-errors";
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
+
 export default function MaterialPage() {
   const params = useParams<{
     courseId: string;
@@ -27,6 +30,8 @@ export default function MaterialPage() {
   const [material, setMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [usageLimitReached, setUsageLimitReached] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) {
@@ -47,11 +52,14 @@ export default function MaterialPage() {
       year: "numeric",
     }).format(new Date(timestamp));
   };
-
   useEffect(() => {
     let isActive = true;
 
     const loadMaterial = async () => {
+      setLoading(true);
+      setError(null);
+      setUsageLimitReached(false);
+
       try {
         const currentMaterial = await getMaterialById(
           params.courseId,
@@ -68,8 +76,13 @@ export default function MaterialPage() {
         }
 
         setMaterial(currentMaterial);
-      } catch {
+      } catch (loadError) {
         if (isActive) {
+          console.error("Failed to load material:", loadError);
+
+          const { category } = classifyPuterError(loadError);
+
+          setUsageLimitReached(category === "insufficient_balance");
           setError("Failed to load material. Please try again.");
         }
       } finally {
@@ -84,7 +97,7 @@ export default function MaterialPage() {
     return () => {
       isActive = false;
     };
-  }, [params.courseId, params.materialId, router]);
+  }, [params.courseId, params.materialId, router, retryCount]);
 
   if (loading) {
     return (
@@ -97,7 +110,28 @@ export default function MaterialPage() {
   if (error) {
     return (
       <main className="flex min-h-[60vh] items-center justify-center px-6">
-        <p className="text-sm text-red-600">{error}</p>
+        <div className="w-full max-w-md">
+          {usageLimitReached ? (
+            <PuterUsageLimitNotice
+              onRetry={() => setRetryCount((count) => count + 1)}
+            />
+          ) : (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 p-5"
+            >
+              <p className="text-sm text-red-700">{error}</p>
+
+              <button
+                type="button"
+                onClick={() => setRetryCount((count) => count + 1)}
+                className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
       </main>
     );
   }

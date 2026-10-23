@@ -16,6 +16,8 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 
 import { chatWithMaterial } from "@/lib/material-chat";
+import { classifyPuterError } from "@/lib/puter-errors";
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
 
 import type { Material } from "@/types/material";
 import type { ChatMessage } from "@/types/chat";
@@ -90,6 +92,7 @@ export default function MaterialChat({ material }: MaterialChatProps) {
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [usageLimitReached, setUsageLimitReached] = useState(false);
   const [failedQuestion, setFailedQuestion] = useState<string | null>(null);
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(
     null,
@@ -157,6 +160,7 @@ export default function MaterialChat({ material }: MaterialChatProps) {
     setSending(true);
     setChatError(null);
     setFailedQuestion(null);
+    setUsageLimitReached(false);
 
     try {
       const answer = await chatWithMaterial(
@@ -172,7 +176,12 @@ export default function MaterialChat({ material }: MaterialChatProps) {
           content: answer,
         },
       ]);
-    } catch {
+    } catch (error) {
+      console.error("AI chat error:", error);
+
+      const { category } = classifyPuterError(error);
+      setUsageLimitReached(category === "insufficient_balance");
+
       setChatError(
         "The AI Assistant couldn't generate a response. Please try again.",
       );
@@ -240,6 +249,7 @@ export default function MaterialChat({ material }: MaterialChatProps) {
     setRegeneratingMessageIndex(assistantMessageIndex);
     setChatError(null);
     setFailedQuestion(null);
+    setUsageLimitReached(false);
 
     try {
       const answer = await chatWithMaterial(
@@ -258,7 +268,12 @@ export default function MaterialChat({ material }: MaterialChatProps) {
             : message,
         ),
       );
-    } catch {
+    } catch (error) {
+      console.error("AI regeneration error:", error);
+
+      const { category } = classifyPuterError(error);
+      setUsageLimitReached(category === "insufficient_balance");
+
       setChatError(
         "The AI Assistant couldn't regenerate this response. Please try again.",
       );
@@ -561,18 +576,33 @@ export default function MaterialChat({ material }: MaterialChatProps) {
 
             {chatError && !sending && (
               <div className="flex justify-start">
-                <div className="max-w-[90%] rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                  <p className="text-sm leading-6 text-red-700">{chatError}</p>
-
-                  {failedQuestion && (
-                    <button
-                      type="button"
-                      onClick={() => void handleRetry()}
-                      className="mt-2 flex items-center gap-1.5 text-sm font-medium text-red-700 transition hover:text-red-800"
+                <div className="w-full max-w-md">
+                  {usageLimitReached ? (
+                    <PuterUsageLimitNotice
+                      onRetry={
+                        failedQuestion ? () => void handleRetry() : undefined
+                      }
+                    />
+                  ) : (
+                    <div
+                      role="alert"
+                      className="rounded-xl border border-red-200 bg-red-50 px-4 py-3"
                     >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Try again
-                    </button>
+                      <p className="text-sm leading-6 text-red-700">
+                        {chatError}
+                      </p>
+
+                      {failedQuestion && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRetry()}
+                          className="mt-2 flex items-center gap-1.5 text-sm font-medium text-red-700 hover:text-red-800"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Try again
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

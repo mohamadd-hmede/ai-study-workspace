@@ -3,13 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 
 import ReactMarkdown from "react-markdown";
+
 import remarkMath from "remark-math";
+
 import remarkGfm from "remark-gfm";
+
 import rehypeKatex from "rehype-katex";
 
 import type { Material } from "@/types/material";
 
 import { generateMaterialSummary } from "@/lib/material-summary";
+import { classifyPuterError } from "@/lib/puter-errors";
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
 
 import "katex/dist/katex.min.css";
 
@@ -17,18 +22,23 @@ import { Download, FileText, Info, RefreshCw } from "lucide-react";
 
 type MaterialSummaryProps = {
   material: Material;
+
   initialGeneration?: boolean;
+
   onGenerated?: (generatedAt: number) => void;
 };
 
 const PDF_PAGE_WIDTH_MM = 210;
+
 const PDF_PAGE_HEIGHT_MM = 297;
+
 const PDF_MARGIN_MM = 12;
 
 const BREAK_SENSITIVE_SELECTOR = "h1, h2, h3, p, li, tr, .katex-display";
 
 type UnsafeZone = {
   top: number;
+
   bottom: number;
 };
 
@@ -42,6 +52,7 @@ function collectUnsafeZones(container: HTMLElement): UnsafeZone[] {
 
     zones.push({
       top: rect.top - containerTop,
+
       bottom: rect.bottom - containerTop,
     });
   });
@@ -51,7 +62,9 @@ function collectUnsafeZones(container: HTMLElement): UnsafeZone[] {
 
 function computeBreakPoints(
   totalHeightPx: number,
+
   pageHeightPx: number,
+
   unsafeZones: UnsafeZone[],
 ): number[] {
   const breakPoints = [0];
@@ -92,7 +105,9 @@ function computeBreakPoints(
 
 export default function MaterialSummary({
   material,
+
   initialGeneration = false,
+
   onGenerated,
 }: MaterialSummaryProps) {
   const summaryContainerRef = useRef<HTMLDivElement | null>(null);
@@ -102,6 +117,7 @@ export default function MaterialSummary({
   const [generatingSummary, setGeneratingSummary] = useState(initialGeneration);
 
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [usageLimitReached, setUsageLimitReached] = useState(false);
 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
@@ -118,10 +134,15 @@ export default function MaterialSummary({
 
         if (isActive) {
           setSummary(generatedSummary);
+
           onGenerated?.(Date.now());
         }
-      } catch {
+      } catch (error) {
         if (isActive) {
+          setUsageLimitReached(
+            classifyPuterError(error).category === "insufficient_balance",
+          );
+
           setSummaryError("Failed to generate summary. Please try again.");
         }
       } finally {
@@ -144,14 +165,22 @@ export default function MaterialSummary({
     }
 
     setGeneratingSummary(true);
+
     setSummaryError(null);
+
+    setUsageLimitReached(false);
 
     try {
       const generatedSummary = await generateMaterialSummary(material);
 
       setSummary(generatedSummary);
+
       onGenerated?.(Date.now());
-    } catch {
+    } catch (error) {
+      setUsageLimitReached(
+        classifyPuterError(error).category === "insufficient_balance",
+      );
+
       setSummaryError("Failed to generate summary. Please try again.");
     } finally {
       setGeneratingSummary(false);
@@ -164,7 +193,10 @@ export default function MaterialSummary({
     }
 
     setDownloadingPdf(true);
+
     setSummaryError(null);
+
+    setUsageLimitReached(false);
 
     try {
       const html2canvas = (await import("html2canvas-pro")).default;
@@ -180,6 +212,7 @@ export default function MaterialSummary({
       const sourceRect = sourceElement.getBoundingClientRect();
 
       const sourceWidthPx = sourceRect.width;
+
       const totalHeightPx = sourceElement.scrollHeight;
 
       const contentWidthMm = PDF_PAGE_WIDTH_MM - PDF_MARGIN_MM * 2;
@@ -194,13 +227,17 @@ export default function MaterialSummary({
 
       const breakPoints = computeBreakPoints(
         totalHeightPx,
+
         pageHeightPx,
+
         unsafeZones,
       );
 
       const pdf = new jsPDF({
         orientation: "portrait",
+
         unit: "mm",
+
         format: "a4",
       });
 
@@ -218,12 +255,19 @@ export default function MaterialSummary({
         const captureContainer = document.createElement("div");
 
         captureContainer.style.position = "fixed";
+
         captureContainer.style.left = "-10000px";
+
         captureContainer.style.top = "0";
+
         captureContainer.style.width = `${sourceWidthPx}px`;
+
         captureContainer.style.height = `${sourceSliceHeight}px`;
+
         captureContainer.style.overflow = "hidden";
+
         captureContainer.style.backgroundColor = "#ffffff";
+
         captureContainer.style.pointerEvents = "none";
 
         const clonedSummary = sourceElement.cloneNode(true) as HTMLElement;
@@ -233,6 +277,7 @@ export default function MaterialSummary({
         clonedSummary.style.width = `${sourceWidthPx}px`;
 
         clonedSummary.style.maxWidth = "none";
+
         clonedSummary.style.margin = "0";
 
         clonedSummary.style.transform = `translateY(-${sourceTop}px)`;
@@ -246,10 +291,15 @@ export default function MaterialSummary({
         try {
           const canvas = await html2canvas(captureContainer, {
             scale: 2,
+
             width: sourceWidthPx,
+
             height: sourceSliceHeight,
+
             backgroundColor: "#ffffff",
+
             useCORS: true,
+
             logging: false,
           });
 
@@ -263,10 +313,15 @@ export default function MaterialSummary({
 
           pdf.addImage(
             imageData,
+
             "PNG",
+
             PDF_MARGIN_MM,
+
             PDF_MARGIN_MM,
+
             contentWidthMm,
+
             imageHeightMm,
           );
         } finally {
@@ -308,23 +363,27 @@ export default function MaterialSummary({
                 <div className="mt-5 h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
               </>
             ) : summaryError ? (
-              <>
-                <h2 className="mt-4 text-lg font-semibold text-slate-900">
-                  Couldn&apos;t generate summary
-                </h2>
-
-                <p className="mt-2 max-w-md text-sm text-red-600">
-                  {summaryError}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={handleGenerateSummary}
-                  className="mt-5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-                >
-                  Try Again
-                </button>
-              </>
+              usageLimitReached ? (
+                <div className="mt-4 w-full max-w-md text-left">
+                  <PuterUsageLimitNotice onRetry={handleGenerateSummary} />
+                </div>
+              ) : (
+                <>
+                  <h2 className="mt-4 text-lg font-semibold text-slate-900">
+                    Couldn&apos;t generate summary
+                  </h2>
+                  <p className="mt-2 max-w-md text-sm text-red-600">
+                    {summaryError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleGenerateSummary}
+                    className="mt-5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                  >
+                    Try Again
+                  </button>
+                </>
+              )
             ) : null}
           </div>
         </div>
@@ -357,6 +416,7 @@ export default function MaterialSummary({
                 <RefreshCw
                   className={`h-4 w-4 ${generatingSummary ? "animate-spin" : ""}`}
                 />
+
                 {generatingSummary ? "Regenerating..." : "Regenerate Summary"}
               </button>
 
@@ -367,14 +427,20 @@ export default function MaterialSummary({
                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
+
                 {downloadingPdf ? "Downloading..." : "Download PDF"}
               </button>
             </div>
           </div>
 
-          {summaryError && (
-            <p className="mx-5 mt-4 text-sm text-red-600">{summaryError}</p>
-          )}
+          {summaryError &&
+            (usageLimitReached ? (
+              <div className="mx-5 mt-4">
+                <PuterUsageLimitNotice onRetry={handleGenerateSummary} />
+              </div>
+            ) : (
+              <p className="mx-5 mt-4 text-sm text-red-600">{summaryError}</p>
+            ))}
 
           <div className="mt-4 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
@@ -399,39 +465,47 @@ export default function MaterialSummary({
                       {children}
                     </h1>
                   ),
+
                   h2: ({ children }) => (
                     <h2 className="mb-4 mt-7 rounded-lg bg-blue-50 px-4 py-3 text-base font-semibold text-blue-900 first:mt-0">
                       {children}
                     </h2>
                   ),
+
                   h3: ({ children }) => (
                     <h3 className="mb-2 mt-5 text-base font-semibold text-slate-900">
                       {children}
                     </h3>
                   ),
+
                   p: ({ children }) => (
                     <p className="mb-4 break-words text-sm leading-7 text-slate-600">
                       {children}
                     </p>
                   ),
+
                   ul: ({ children }) => (
                     <ul className="mb-4 list-disc space-y-2 pl-6">
                       {children}
                     </ul>
                   ),
+
                   ol: ({ children }) => (
                     <ol className="mb-4 list-decimal space-y-2 pl-6">
                       {children}
                     </ol>
                   ),
+
                   li: ({ children }) => (
                     <li className="break-words leading-7">{children}</li>
                   ),
+
                   strong: ({ children }) => (
                     <strong className="font-semibold text-slate-900">
                       {children}
                     </strong>
                   ),
+
                   pre: ({ children }) => (
                     <pre className="mb-4 max-w-full overflow-x-auto rounded-lg bg-slate-50 p-4 text-sm leading-6">
                       {children}
@@ -441,6 +515,7 @@ export default function MaterialSummary({
                   code: ({ children }) => (
                     <code className="font-mono text-sm">{children}</code>
                   ),
+
                   table: ({ children }) => (
                     <div className="my-5 overflow-x-auto">
                       <table className="w-full border-collapse text-left">
@@ -448,19 +523,23 @@ export default function MaterialSummary({
                       </table>
                     </div>
                   ),
+
                   thead: ({ children }) => (
                     <thead className="bg-slate-100">{children}</thead>
                   ),
+
                   th: ({ children }) => (
                     <th className="border border-slate-200 px-4 py-3 font-semibold text-slate-900">
                       {children}
                     </th>
                   ),
+
                   td: ({ children }) => (
                     <td className="border border-slate-200 px-4 py-3 text-slate-700">
                       {children}
                     </td>
                   ),
+
                   img: () => null,
                 }}
               >

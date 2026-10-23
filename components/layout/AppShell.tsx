@@ -1,13 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
+import { useAuth } from "@/components/AuthProvider";
 import AppHeader from "@/components/layout/AppHeader";
 import AppSidebar from "@/components/layout/AppSidebar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const { authStatus, user } = useAuth();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (authStatus === "unauthenticated") {
+      router.replace("/sign-in");
+    }
+  }, [authStatus, router]);
 
   useEffect(() => {
     if (!sidebarOpen) {
@@ -33,6 +44,33 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [sidebarOpen]);
+
+  if (authStatus === "loading" || authStatus === "unauthenticated") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <p className="text-sm text-slate-500">
+          {authStatus === "loading"
+            ? "Verifying your session..."
+            : "Redirecting to sign in..."}
+        </p>
+      </div>
+    );
+  }
+
+  if (authStatus === "error" || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+        <div className="max-w-md text-center">
+          <h1 className="text-xl font-semibold text-slate-900">
+            We couldn&apos;t verify your session
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Please check your connection and try again.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">

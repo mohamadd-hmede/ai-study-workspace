@@ -11,6 +11,9 @@ import { getMaterialsByCourse } from "@/lib/materials";
 import { getQuizAttemptsByMaterial } from "@/lib/quiz-history";
 
 import type { Course } from "@/types/course";
+import { classifyPuterError } from "@/lib/puter-errors";
+
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
 
 type CourseWithMaterialCount = Course & {
   materialCount: number | null;
@@ -37,6 +40,8 @@ export default function DashboardPage() {
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [retryCount, setRetryCount] = useState(0);
+
   useEffect(() => {
     if (authStatus === "unauthenticated") {
       router.replace("/sign-in");
@@ -53,6 +58,12 @@ export default function DashboardPage() {
 
       setDashboardLoading(true);
       setError(null);
+      setDashboardData({
+        courses: [],
+        totalCourses: null,
+        totalMaterials: null,
+        totalQuizzes: null,
+      });
 
       try {
         const courses = await getCourses();
@@ -131,7 +142,13 @@ export default function DashboardPage() {
         console.error("Failed to load courses for dashboard:", loadError);
 
         if (isActive) {
-          setError("Failed to load your courses. Please try again.");
+          const { category } = classifyPuterError(loadError);
+
+          setError(
+            category === "insufficient_balance"
+              ? "Your Puter account has reached its usage limit. Your saved courses are temporarily unavailable because Puter is blocking access. Upgrade your Puter plan to restore access."
+              : "Failed to load your courses. Please try again.",
+          );
           setDashboardLoading(false);
         }
       }
@@ -142,7 +159,7 @@ export default function DashboardPage() {
     return () => {
       isActive = false;
     };
-  }, [user]);
+  }, [user, retryCount]);
 
   if (authLoading || dashboardLoading) {
     return (
@@ -229,11 +246,26 @@ export default function DashboardPage() {
           </p>
         </section>
 
-        {error && (
-          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {error &&
+          (error.includes("usage limit") ? (
+            <PuterUsageLimitNotice
+              onRetry={() => setRetryCount((count) => count + 1)}
+            />
+          ) : (
+            <div
+              role="alert"
+              className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              <p>{error}</p>
+              <button
+                type="button"
+                onClick={() => setRetryCount((count) => count + 1)}
+                className="mt-3 rounded-lg border border-red-300 px-4 py-2 font-medium text-red-700 hover:bg-red-100"
+              >
+                Retry
+              </button>
+            </div>
+          ))}
 
         <section className="mt-6 grid gap-5 md:grid-cols-3">
           {stats.map((stat) => {

@@ -1,0 +1,17 @@
+diff --git a/node_modules/@heyputer/puter.js/src/lib/networkUtils.js b/node_modules/@heyputer/puter.js/src/lib/networkUtils.js
+index b63f36e..88588dc 100644
+--- a/node_modules/@heyputer/puter.js/src/lib/networkUtils.js
++++ b/node_modules/@heyputer/puter.js/src/lib/networkUtils.js
+@@ -918,11 +918,7 @@ const logCall = (call, fields) => {
+ 
+ /** Prompt for funding, or hand off to the app's upgrade flow. */
+ async function promptUpgrade(puter, message) {
+-    if (puter.env === 'web') {
+-        showUsageLimitDialog(message);
+-    } else if (puter.env === 'app') {
+-        await puter.ui.requestUpgrade();
+-    }
++    return;
+ }
+ 
+ function promptEmailConfirmation(puter, error) {

@@ -7,6 +7,8 @@ import {
   getMaterialFileCapability,
 } from "@/lib/material-file-capabilities";
 
+import { getCourseById } from "@/lib/courses";
+
 const MATERIAL_PREFIX = "material:";
 
 const getMaterialKey = (courseId: string, id: string) => {
@@ -55,6 +57,17 @@ export const createMaterial = async (
   name?: string,
   onProgress?: (progress: number) => void,
 ): Promise<Material> => {
+  const course = await getCourseById(courseId);
+
+  if (!course) {
+    throw new Error("Course not found.");
+  }
+
+  const existingCourse = await puter.kv.get(`course:${courseId}`);
+
+  if (!existingCourse) {
+    throw new Error("Course not found.");
+  }
   const capability = await detectMaterialFileCapability(file);
 
   if (!capability) {
@@ -100,7 +113,15 @@ export const renameMaterial = async (
     throw new Error("Material name cannot be empty.");
   }
 
-  const normalizedMaterial = normalizeMaterial(material);
+  const existingMaterial = await puter.kv.get(
+    getMaterialKey(material.courseId, material.id),
+  );
+
+  if (!existingMaterial) {
+    throw new Error("Material not found.");
+  }
+
+  const normalizedMaterial = normalizeMaterial(existingMaterial as Material);
 
   const updatedMaterial: Material = {
     ...normalizedMaterial,
@@ -155,10 +176,8 @@ export const deleteMaterial = async (material: Material): Promise<boolean> => {
   try {
     await puter.fs.delete(storedMaterial.path);
   } catch (error) {
-    console.warn(
-      "Material file could not be deleted. It may already be missing:",
-      error,
-    );
+    console.error("Material file deletion failed:", error);
+    throw error;
   }
 
   await puter.kv.del(key);

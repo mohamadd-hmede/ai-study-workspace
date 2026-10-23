@@ -11,6 +11,7 @@ import { Plus, Search } from "lucide-react";
 import CreateCourseForm from "@/components/courses/CreateCourseForm";
 import EditCourseForm from "@/components/courses/EditCourseForm";
 import { classifyPuterError } from "@/lib/puter-errors";
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
 
 type CourseWithMaterialCount = Course & {
   materialCount: number | null;
@@ -50,6 +51,7 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<CourseWithMaterialCount[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [usageLimitReached, setUsageLimitReached] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -77,7 +79,12 @@ export default function CoursesPage() {
 
         setCourses(coursesWithMaterialCount);
         setCoursesError(null);
-      } catch {
+        setUsageLimitReached(false);
+      } catch (error) {
+        console.error("Failed to load courses:", error);
+        const { category } = classifyPuterError(error);
+
+        setUsageLimitReached(category === "insufficient_balance");
         setCoursesError("Failed to load courses. Please try again.");
       } finally {
         setCoursesLoading(false);
@@ -88,6 +95,7 @@ export default function CoursesPage() {
   }, [user, authLoading, authStatus, router]);
 
   const retryLoadCourses = async () => {
+    setUsageLimitReached(false);
     setCoursesLoading(true);
     setCoursesError(null);
 
@@ -95,7 +103,11 @@ export default function CoursesPage() {
       const coursesWithMaterialCount = await loadCoursesWithMaterialCounts();
 
       setCourses(coursesWithMaterialCount);
-    } catch {
+    } catch (error) {
+      console.error("Failed to retry loading courses:", error);
+      const { category } = classifyPuterError(error);
+
+      setUsageLimitReached(category === "insufficient_balance");
       setCoursesError("Failed to load courses. Please try again.");
     } finally {
       setCoursesLoading(false);
@@ -266,19 +278,26 @@ export default function CoursesPage() {
           }`}
         >
           <div className="order-2 min-w-0 lg:order-1">
-            {coursesError && (
-              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
-                <p className="text-sm text-red-700">{coursesError}</p>
-
-                <button
-                  type="button"
-                  onClick={retryLoadCourses}
-                  className="mt-3 text-sm font-medium text-red-700 underline"
+            {coursesError &&
+              (usageLimitReached ? (
+                <PuterUsageLimitNotice onRetry={retryLoadCourses} />
+              ) : (
+                <div
+                  role="alert"
+                  className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4"
                 >
-                  Try Again
-                </button>
-              </div>
-            )}
+                  <p className="text-sm text-red-700">{coursesError}</p>
+
+                  <button
+                    type="button"
+                    onClick={retryLoadCourses}
+                    className="mt-3 text-sm font-medium text-red-700 underline"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ))}
+
             {coursesLoading ? (
               <p className="text-sm text-slate-500">Loading courses...</p>
             ) : (

@@ -11,6 +11,8 @@ import MaterialUploadForm from "@/components/materials/MaterialUploadForm";
 import MaterialList from "@/components/materials/MaterialList";
 import { getMaterialsByCourse } from "@/lib/materials";
 import type { Material } from "@/types/material";
+import { classifyPuterError } from "@/lib/puter-errors";
+import PuterUsageLimitNotice from "@/components/ui/PuterUsageLimitNotice";
 
 export default function CourseDetailsPage() {
   const params = useParams<{ courseId: string }>();
@@ -20,11 +22,13 @@ export default function CourseDetailsPage() {
   const [course, setCourse] = useState<Course | null>(null);
   const [courseLoading, setCourseLoading] = useState(true);
   const [courseError, setCourseError] = useState<string | null>(null);
+  const [courseUsageLimit, setCourseUsageLimit] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [materialsError, setMaterialsError] = useState<string | null>(null);
+  const [materialsUsageLimit, setMaterialsUsageLimit] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"materials" | "details">(
     "materials",
@@ -76,19 +80,26 @@ export default function CourseDetailsPage() {
 
         setCourse(currentCourse);
         setCourseError(null);
+        setCourseUsageLimit(false);
 
         try {
           const currentMaterials = await getMaterialsByCourse(params.courseId);
 
           setMaterials(currentMaterials);
           setMaterialsError(null);
+          setMaterialsUsageLimit(false);
         } catch (materialsLoadError) {
           console.error("Failed to load course materials:", materialsLoadError);
 
+          const { category } = classifyPuterError(materialsLoadError);
+          setMaterialsUsageLimit(category === "insufficient_balance");
           setMaterialsError("Materials could not be loaded. Please try again.");
         }
       } catch (courseLoadError) {
         console.error("Failed to load course:", courseLoadError);
+
+        const { category } = classifyPuterError(courseLoadError);
+        setCourseUsageLimit(category === "insufficient_balance");
         setCourseError("Failed to load course. Please try again.");
       } finally {
         setCourseLoading(false);
@@ -107,6 +118,8 @@ export default function CourseDetailsPage() {
     setCourseLoading(true);
     setCourseError(null);
     setMaterialsError(null);
+    setCourseUsageLimit(false);
+    setMaterialsUsageLimit(false);
 
     try {
       const currentCourse = await getCourseById(params.courseId);
@@ -122,13 +135,20 @@ export default function CourseDetailsPage() {
         const currentMaterials = await getMaterialsByCourse(params.courseId);
 
         setMaterials(currentMaterials);
+        setMaterialsError(null);
+        setMaterialsUsageLimit(false);
       } catch (materialsLoadError) {
         console.error("Failed to load course materials:", materialsLoadError);
 
+        const { category } = classifyPuterError(materialsLoadError);
+        setMaterialsUsageLimit(category === "insufficient_balance");
         setMaterialsError("Materials could not be loaded. Please try again.");
       }
     } catch (courseLoadError) {
       console.error("Failed to load course:", courseLoadError);
+
+      const { category } = classifyPuterError(courseLoadError);
+      setCourseUsageLimit(category === "insufficient_balance");
       setCourseError("Failed to load course. Please try again.");
     } finally {
       setCourseLoading(false);
@@ -202,15 +222,22 @@ export default function CourseDetailsPage() {
   if (courseError && !course) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-        <div className="max-w-md rounded-xl border border-red-200 bg-white p-6 text-center">
-          <p className="text-sm text-red-700">{courseError}</p>
+        <div className="w-full max-w-md">
+          {courseUsageLimit ? (
+            <PuterUsageLimitNotice onRetry={retryLoadCourse} />
+          ) : (
+            <div className="rounded-xl border border-red-200 bg-white p-6 text-center">
+              <p className="text-sm text-red-700">{courseError}</p>
 
-          <button
-            onClick={retryLoadCourse}
-            className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-          >
-            Try Again
-          </button>
+              <button
+                type="button"
+                onClick={retryLoadCourse}
+                className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
         </div>
       </main>
     );
@@ -230,18 +257,25 @@ export default function CourseDetailsPage() {
           ← Back to My Courses
         </Link>
 
-        {courseError && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="text-sm text-red-700">{courseError}</p>
-
-            <button
-              onClick={retryLoadCourse}
-              className="mt-3 text-sm font-medium text-red-700 underline"
+        {courseError &&
+          (courseUsageLimit ? (
+            <PuterUsageLimitNotice onRetry={retryLoadCourse} />
+          ) : (
+            <div
+              role="alert"
+              className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4"
             >
-              Try Again
-            </button>
-          </div>
-        )}
+              <p className="text-sm text-red-700">{courseError}</p>
+
+              <button
+                type="button"
+                onClick={retryLoadCourse}
+                className="mt-3 text-sm font-medium text-red-700 underline"
+              >
+                Try Again
+              </button>
+            </div>
+          ))}
 
         <div className="mt-7">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -307,19 +341,25 @@ export default function CourseDetailsPage() {
 
         {activeTab === "materials" && (
           <div className="mt-7">
-            {materialsError && (
-              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
-                <p className="text-sm text-red-700">{materialsError}</p>
-
-                <button
-                  type="button"
-                  onClick={retryLoadCourse}
-                  className="mt-3 text-sm font-medium text-red-700 underline"
+            {materialsError &&
+              (materialsUsageLimit ? (
+                <PuterUsageLimitNotice onRetry={retryLoadCourse} />
+              ) : (
+                <div
+                  role="alert"
+                  className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4"
                 >
-                  Try Again
-                </button>
-              </div>
-            )}
+                  <p className="text-sm text-red-700">{materialsError}</p>
+
+                  <button
+                    type="button"
+                    onClick={retryLoadCourse}
+                    className="mt-3 text-sm font-medium text-red-700 underline"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ))}
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="w-full sm:max-w-md">
                 <input

@@ -9,6 +9,8 @@ import { getMaterialFileCapability } from "@/lib/material-file-capabilities";
 
 import { renderMaterialPages } from "@/lib/material-rendering";
 
+import { classifyPuterError } from "@/lib/puter-errors";
+
 const MATERIAL_PROCESSING_MODEL = "claude-sonnet-4-6";
 
 const MAX_EXTRACTED_TEXT_LENGTH = 100_000;
@@ -275,6 +277,12 @@ ${extractedText || "[No readable text was extracted.]"}
 
     return text;
   } catch (error) {
+    const { category } = classifyPuterError(error);
+
+    if (category === "insufficient_balance") {
+      throw error;
+    }
+
     console.warn(
       "Visual Office processing failed. Falling back to extracted text:",
       error,
